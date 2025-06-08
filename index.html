@@ -1,0 +1,3067 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SapaMajalengka - WebGIS Kabupaten Majalengka</title>
+    <meta name="description" content="Platform WebGIS untuk pemetaan fasilitas umum dan sarana aksesibilitas di Kabupaten Majalengka" />
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Lucide Icons CDN -->
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <!-- Custom CSS -->
+    <style>
+        @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap");
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: "Inter", sans-serif;
+            line-height: 1.6;
+            color: #374151;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        .service-card {
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .service-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+
+        .hero-title-strong {
+            color: #eec1d6;
+            font-weight: 900;
+            text-shadow: 0 2px 12px rgba(100, 103, 121, 0.4);
+        }
+
+        .hero-subtitle {
+            color: #aebae1;
+            font-weight: 700;
+            text-shadow: 0 2px 6px rgba(173, 187, 209, 0.35);
+        }
+
+        .hero-paragraph {
+            color: #85add4;
+            text-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Leaflet CSS Customization */
+        .leaflet-container {
+            height: 100%;
+            width: 100%;
+            border-radius: 0.5rem;
+        }
+
+        .leaflet-popup-content-wrapper {
+            border-radius: 8px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        .leaflet-popup-content {
+            margin: 0;
+            line-height: 1.4;
+            font-family: "Inter", sans-serif;
+        }
+
+        /* Modal styles */
+        .modal-content {
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .service-overview-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+        }
+
+        .service-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 0.75rem;
+        }
+
+        .facility-card {
+            transition: all 0.3s ease;
+        }
+
+        .facility-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        .map-container {
+            position: relative;
+            border-radius: 0.5rem;
+            overflow: hidden;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .map-header {
+            padding: 0.75rem 1rem;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .map-loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 400px;
+            background-color: #f8fafc;
+            color: #64748b;
+            flex-direction: column;
+        }
+
+        .tag {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.5rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .tag-blue {
+            background-color: #dbeafe;
+            color: #1d4ed8;
+        }
+
+        .tag-green {
+            background-color: #dcfce7;
+            color: #166534;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .animate-pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        @media (max-width: 768px) {
+            .service-overview-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .service-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 640px) {
+            .service-overview-grid {
+                grid-template-columns: 1fr;
+            }
+            .service-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+
+    <!-- Tailwind Config -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#eff6ff',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                        },
+                    },
+                },
+            },
+        };
+    </script>
+</head>
+<body class="bg-gradient-to-br from-[#c7d2fe] via-[#7dd3fc] to-[#86efac]">
+
+    <!-- Header -->
+    <header class="sticky top-0 z-50 w-full border-b backdrop-blur shadow-md bg-gradient-to-r from-white-600 via-white-600 to-cyan-600 ring-1 ring-yellow-500/40">
+        <div class="container mx-auto flex h-16 items-center justify-between px-4">
+            <div class="flex items-center space-x-3">
+                <a href="#" class="flex items-center space-x-3 rtl:space-x-reverse">
+                    <img
+                        src="assets/sapa.png"
+                        class="h-16"
+                        alt="Logo Tambahan"
+                    />
+                    <img
+                        src="assets/logomjlk.png"
+                        alt="Logo Kabupaten Majalengka"
+                        class="h-15 w-10 object-contain rounded-sm shadow-sm"
+                    />
+                    <div>
+                        <span class="text-xl font-bold text-white">
+                            SapaMajalengka
+                        </span>
+                        <p class="text-xs text-white/90">
+                            WebGIS Kabupaten Majalengka
+                        </p>
+                    </div>
+                </a>
+            </div>
+
+            <nav class="hidden md:flex items-center space-x-6">
+                <a href="#beranda" class="text-sm font-medium text-white hover:text-cyan-300 transition-colors">Beranda</a>
+                <a href="#fitur" class="text-sm font-medium text-white hover:text-cyan-300 transition-colors">Fitur</a>
+                <a href="#layanan" class="text-sm font-medium text-white hover:text-cyan-300 transition-colors">Layanan</a>
+                <a href="#tentang" class="text-sm font-medium text-white hover:text-cyan-300 transition-colors">Tentang</a>
+                <a href="#kontak" class="text-sm font-medium text-white hover:text-cyan-300 transition-colors">Kontak</a>
+            </nav>
+
+            <div class="flex items-center space-x-4">
+                <button
+                    id="helpBtn"
+                    class="hidden md:inline-flex items-center px-3 py-2 text-sm font-medium text-white hover:text-cyan-300 transition-colors"
+                >
+                    <i data-lucide="phone" class="h-4 w-4 mr-2"></i>
+                    Bantuan
+                </button>
+                <button
+                    class="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-cyan-500 to-green-500 hover:from-blue-700 hover:to-green-700 rounded-md transition-all"
+                >
+                    Akses WebGIS
+                </button>
+                <button
+                    id="mobileMenuBtn"
+                    class="md:hidden p-2 text-white hover:text-cyan-300"
+                >
+                    <i data-lucide="menu" class="h-5 w-5"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Mobile Menu -->
+        <div id="mobileMenu" class="md:hidden border-t bg-gradient-to-r from-cyan-600 via-blue-600 to-green-600 p-4 hidden">
+            <nav class="flex flex-col space-y-4">
+                <a href="#beranda" class="text-sm font-medium text-white hover:text-cyan-300">Beranda</a>
+                <a href="#fitur" class="text-sm font-medium text-white hover:text-cyan-300">Fitur</a>
+                <a href="#layanan" class="text-sm font-medium text-white hover:text-cyan-300">Layanan</a>
+                <a href="#tentang" class="text-sm font-medium text-white hover:text-cyan-300">Tentang</a>
+                <a href="#kontak" class="text-sm font-medium text-white hover:text-cyan-300">Kontak</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="flex-1">
+        <!-- Hero Section -->
+        <section id="beranda"
+            class="relative w-full py-12 md:py-24 lg:py-32 xl:py-48 overflow-hidden bg-cover bg-center"
+            style="background-image: url('assets/bg.jpg')"
+
+        >
+4
+                    
+        >
+            <!-- Overlay gelap agar teks tetap kontras -->
+            <div class="absolute inset-0 bg-black/30 z-0"></div>
+
+            <div class="container mx-auto px-4 md:px-6 relative z-10">
+                <div class="flex flex-col items-center space-y-6 text-center text-white">
+                    <div class="inline-flex items-center px-3 py-1 text-sm bg-white/20 text-white border border-white/30 rounded-full">
+                        🗺️ Sistem Informasi Geografis Terdepan
+                    </div>
+
+                    <div class="space-y-4">
+                        <h1 class="hero-title-strong text-4xl sm:text-5xl md:text-6xl lg:text-7xl tracking-tight">SapaMajalengka</h1>
+                        <h2 class="hero-subtitle text-xl md:text-2xl"style="color: rgb(232, 205, 205);" >  
+                            Sarana Aksesibilitas dan Fasilitas Umum
+                        </h2>
+                        <p class="hero-paragraph mx-auto max-w-[700px] md:text-xl" style="color: rgb(232, 205, 205);" >
+                            Platform WebGIS terintegrasi untuk pemetaan dan pengelolaan fasilitas umum serta sarana aksesibilitas di Kabupaten Majalengka. Wujudkan Majalengka yang inklusif dan mudah diakses untuk semua.
+                        </p>
+                    </div>
+
+                    <div class="flex flex-wrap justify-center gap-6 text-sm text-white/90">
+                        <div class="flex items-center">
+                            <i data-lucide="check-circle" class="h-4 w-4 text-green-400 mr-2"></i>
+                            Gratis untuk Masyarakat
+                        </div>
+                        <div class="flex items-center">
+                            <i data-lucide="check-circle" class="h-4 w-4 text-green-400 mr-2"></i>
+                            Mudah Digunakan
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+       <!-- Section: Peta Kabupaten Majalengka -->
+        <section id="peta" class="w-full py-12 bg-gradient-to-br from-blue-50 to-green-100">
+            <div class="container mx-auto px-4 md:px-6 text-center">
+                <h2 class="text-3xl font-bold mb-4 text-gray-800">Peta Wilayah Administrasi Kabupaten Majalengka</h2>
+                <p class="text-gray-700 mb-8">Menampilkan keseluruhan wilayah administratif Kabupaten Majalengka, termasuk semua kecamatan dan desa.</p>
+                <div class="aspect-w-16 aspect-h-9 rounded-lg overflow-hidden shadow-lg border border-blue-300">
+                    <iframe
+                        src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d15821.243968426275!2d108.15000000000002!3d-6.830000000000001!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x2e6f1f5f176b4e4b%3A0xa60fe5f064b6f647!2sKabupaten%20Majalengka%2C%20Jawa%20Barat!5e0!3m2!1sen!2sid!4v1717651216211!5m2!1sen!2sid"
+                        width="100%" height="500" style="border:0;" allowfullscreen="" loading="lazy"
+                        referrerpolicy="no-referrer-when-downgrade"></iframe>
+                </div>
+            </div>
+        </section>
+
+        <!-- Features Section -->
+        <section id="fitur" class="w-full py-12 md:py-24 lg:py-32 bg-gradient-to-br from-cyan-100 via-cyan-200 to-green-100">
+            <div class="container mx-auto px-4 md:px-6">
+                <div class="flex flex-col items-center justify-center space-y-4 text-center mb-12">
+                    <div class="inline-flex items-center px-3 py-1 text-sm border border-blue-300 text-blue-700 rounded-full">
+                        Fitur Unggulan
+                    </div>
+                    <h2 class="text-3xl font-bold tracking-tighter sm:text-5xl text-gray-900">
+                        Teknologi WebGIS Terdepan
+                    </h2>
+                    <p class="max-w-[900px] text-gray-700 md:text-xl">
+                        Dilengkapi dengan fitur-fitur canggih untuk memudahkan akses informasi fasilitas umum dan aksesibilitas
+                    </p>
+                </div>
+
+                <!-- Feature Detail -->
+                <div class="border border-blue-300 rounded-lg bg-gradient-to-br from-cyan-50 via-cyan-100 to-green-50 shadow-lg">
+                    <div class="p-6">
+                        <div class="flex items-center space-x-3 mb-4">
+                            <div id="activeFeatureIcon" class="flex h-12 w-12 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-600 to-white-600">
+                                <img src="assets/map.png" alt="Ikon Pemetaan" class="h-11 w-11 object-contain" />
+                            </div>
+                            <i data-lucide="map-pin" class="h-6 w-6 text-white"></i>
+                            <h3 id="activeFeatureTitle" class="text-xl font-semibold">Pemetaan Fasilitas</h3>
+                        </div>
+                        <p id="activeFeatureDescription" class="text-base leading-relaxed text-gray-700 mb-6 text-center">
+                            Sistem pemetaan digital yang menampilkan lokasi berbagai fasilitas umum 
+                            dan Menampilkan lokasi fasilitas melalui Peta interaktif dengan filter kategori.
+                        </p>
+                        <div class="space-y-3 mb-6">
+                            <div class="flex items-center text-sm text-green-600">
+                                <i data-lucide="check-circle" class="h-4 w-4 mr-2"></i>
+                                Terintegrasi dengan database pemerintah
+                            </div>
+                            <div class="flex items-center text-sm text-green-600">
+                                <i data-lucide="check-circle" class="h-4 w-4 mr-2"></i>
+                                Interface yang user-friendly
+                            </div>
+                        </div>
+                        
+            </div>
+        </section>
+
+        <!-- Services Section -->
+        <section id="layanan" class="w-full py-12 md:py-24 lg:py-32 bg-gradient-to-br from-green-100 via-cyan-100 to-cyan-50">
+            <div class="container mx-auto px-4 md:px-6">
+                <div class="flex flex-col items-center justify-center space-y-4 text-center mb-12">
+                    <div class="inline-flex items-center px-3 py-1 text-sm border border-green-300 text-green-700 rounded-full">
+                        Layanan Kami
+                    </div>
+                    <h2 class="text-3xl font-bold tracking-tighter sm:text-5xl text-gray-900">
+                        Fasilitas dan Aksesibilitas Lengkap
+                    </h2>
+                    <p class="max-w-[900px] text-gray-700 md:text-xl">
+                        Jelajahi berbagai fasilitas umum dan sarana aksesibilitas yang tersedia di Kabupaten Majalengka
+                    </p>
+                </div>
+                <div class="mx-auto grid max-w-6xl gap-6 lg:grid-cols-3 md:grid-cols-2">
+
+                    <!-- Service Cards with Custom Background -->
+                    <div class="service-card cursor-pointer hover:shadow-lg transition-all duration-300 hover:-translate-y-1 group rounded-lg border border-red-300 bg-gradient-to-br from-red-200 to-pink-300" data-service="kesehatan">
+                        <div class="p-6">
+                            <div class="flex h-16 w-16 items-center justify-center rounded-lg bg-gradient-to-r from-red-500 to-pink-500 mb-4 group-hover:scale-110 transition-transform">
+                                <img src="assets/fk.png" alt="Fasilitas Kesehatan" class="h-10 w-10 text-white" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" />
+                                <i data-lucide="building-2" class="h-8 w-8 text-white" style="display: none;"></i>
+                            </div>
+                            <h3 class="text-lg font-semibold group-hover:text-blue-600 transition-colors mb-2">Fasilitas Kesehatan</h3>
+                            <p class="text-gray-700 mb-4">Rumah sakit, puskesmas, dan klinik dengan fasilitas aksesibilitas</p>
+                            <div class="flex items-center justify-between">
+                                <span class="inline-flex items-center px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded-full">20+ Lokasi</span>
+                                <i data-lucide="arrow-right" class="h-4 w-4 text-gray-400 group-hover:text-blue-600 transition-colors"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="service-card cursor-pointer hover:shadow-lg transition-all duration-300 hover:-translate-y-1 group rounded-lg border border-green-300 bg-gradient-to-br from-green-200 to-emerald-300" data-service="pendidikan">
+                        <div class="p-6">
+                            <div class="flex h-16 w-16 items-center justify-center rounded-lg bg-gradient-to-r from-green-500 to-emerald-500 mb-4 group-hover:scale-110 transition-transform">
+                                <img src="assets/fp.png" alt="Fasilitas Pendidikan" class="h-10 w-10 text-white" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" />
+                                <i data-lucide="users" class="h-8 w-8 text-white" style="display: none;"></i>
+                            </div>
+                            <h3 class="text-lg font-semibold group-hover:text-blue-600 transition-colors mb-2">Fasilitas Pendidikan</h3>
+                            <p class="text-gray-700 mb-4">Sekolah dan universitas dengan akses yang mudah dijangkau</p>
+                            <div class="flex items-center justify-between">
+                                <span class="inline-flex items-center px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded-full">80+ Institusi</span>
+                                <i data-lucide="arrow-right" class="h-4 w-4 text-gray-400 group-hover:text-blue-600 transition-colors"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="service-card cursor-pointer hover:shadow-lg transition-all duration-300 hover:-translate-y-1 group rounded-lg border border-yellow-300 bg-gradient-to-br from-yellow-200 to-orange-300" data-service="transportasi">
+                        <div class="p-6">
+                            <div class="flex h-16 w-16 items-center justify-center rounded-lg bg-gradient-to-r from-yellow-500 to-orange-500 mb-4 group-hover:scale-110 transition-transform">
+                                <img src="assets/transport.png" alt="Transportasi Umum" class="h-10 w-10 text-white" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" />
+                                <i data-lucide="route" class="h-8 w-8 text-white" style="display: none;"></i>
+                            </div>
+                            <h3 class="text-lg font-semibold group-hover:text-blue-600 transition-colors mb-2">Transportasi Umum</h3>
+                            <p class="text-gray-700 mb-4">Terminal, halte, dan stasiun dengan fasilitas lengkap</p>
+                            <div class="flex items-center justify-between">
+                                <span class="inline-flex items-center px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded-full">25+ Lokasi</span>
+                                <i data-lucide="arrow-right" class="h-4 w-4 text-gray-400 group-hover:text-blue-600 transition-colors"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="service-card cursor-pointer hover:shadow-lg transition-all duration-300 hover:-translate-y-1 group rounded-lg border border-purple-300 bg-gradient-to-br from-yellow-200 to-violet-300" data-service="umum">
+                        <div class="p-6">
+                            <div class="flex h-16 w-16 items-center justify-center rounded-lg bg-gradient-to-r from-purple-500 to-violet-500 mb-4 group-hover:scale-110 transition-transform">
+                                <img src="assets/fu.png" alt="Fasilitas Umum" class="h-10 w-10 text-white" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" />
+                                <i data-lucide="globe" class="h-8 w-8 text-white" style="display: none;"></i>
+                            </div>
+                            <h3 class="text-lg font-semibold group-hover:text-blue-600 transition-colors mb-2">Fasilitas Umum</h3>
+                            <p class="text-gray-700 mb-4">Taman, masjid, dan fasilitas publik lainnya</p>
+                            <div class="flex items-center justify-between">
+                                <span class="inline-flex items-center px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded-full">200+ Tempat</span>
+                                <i data-lucide="arrow-right" class="h-4 w-4 text-gray-400 group-hover:text-blue-600 transition-colors"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="service-card cursor-pointer hover:shadow-lg transition-all duration-300 hover:-translate-y-1 group rounded-lg border border-purple-300 bg-gradient-to-br from-red-200 to-green-300" data-service="makanan">
+                        <div class="p-6">
+                            <div class="flex h-16 w-16 items-center justify-center rounded-lg bg-gradient-to-r from-orange-500 to-red-500 mb-4 group-hover:scale-110 transition-transform">
+                                <img src="assets/makanan-khas.png" alt="Makanan Khas" class="h-10 w-10 text-white" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" />
+                                <i data-lucide="utensils" class="h-8 w-8 text-white" style="display: none;"></i>
+                            </div>
+                            <h3 class="text-lg font-semibold group-hover:text-blue-600 transition-colors mb-2">Makanan Khas</h3>
+                            <p class="text-gray-700 mb-4">Nasi Lengko, Doclang, Oncom Goreng, Kecap Manis, dan Makanan Khas Lainnya</p>
+                            <div class="flex items-center justify-between">
+                                <span class="inline-flex items-center px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded-full">50+ Tempat</span>
+                                <i data-lucide="arrow-right" class="h-4 w-4 text-gray-400 group-hover:text-blue-600 transition-colors"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="service-card cursor-pointer hover:shadow-lg transition-all duration-300 hover:-translate-y-1 group rounded-lg border border-purple-300 bg-gradient-to-br from-purple-200 to-violet-300" data-service="wisata">
+                        <div class="p-6">
+                            <div class="flex h-16 w-16 items-center justify-center rounded-lg bg-gradient-to-r from-green-500 to-blue-500 mb-4 group-hover:scale-110 transition-transform">
+                                <img src="assets/wisata.png" alt="Tempat Wisata" class="h-10 w-10 text-white" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" />
+                                <i data-lucide="mountain" class="h-8 w-8 text-white" style="display: none;"></i>
+                            </div>
+                            <h3 class="text-lg font-semibold group-hover:text-blue-600 transition-colors mb-2">Tempat Wisata</h3>
+                            <p class="text-gray-700 mb-4">Terasering Panyaweuyan, Curug Muara Jaya, Paralayang Gunung Panten, Situ Cipanten, dan Lainnya</p>
+                            <div class="flex items-center justify-between">
+                                <span class="inline-flex items-center px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded-full">25+ Lokasi</span>
+                                <i data-lucide="arrow-right" class="h-4 w-4 text-gray-400 group-hover:text-blue-600 transition-colors"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Statistik dan CTA -->
+        <section class="w-full py-12 md:py-24 lg:py-32 bg-gradient-to-b from-cyan-100 via-cyan-200 to-green-100">
+            <div class="container mx-auto px-4 md:px-6">
+
+                <!-- Grid Statistik -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+                    <!-- 1. Kecamatan -->
+                    <div class="flex items-start gap-4 rounded-lg shadow-md text-white bg-gradient-to-br from-indigo-600 to-teal-600 p-6">
+                        <div class="flex-shrink-0 h-14 w-14 flex items-center justify-center rounded-lg bg-white/20 overflow-hidden">
+                            <img src="assets/kecamatan.png" alt="Ikon Kecamatan" class="h-9 w-9 object-contain" />
+                        </div>
+                        <div>
+                            <h4 class="text-lg font-semibold mb-1">26 Kecamatan</h4>
+                            <p class="text-white text-sm">Wilayah administratif di Kabupaten Majalengka</p>
+                        </div>
+                    </div>
+
+                    <!-- 2. Luas Wilayah -->
+                    <div class="flex items-start gap-4 rounded-lg shadow-md text-white bg-gradient-to-br from-green-600 to-cyan-600 p-6">
+                        <div class="flex-shrink-0 h-14 w-14 flex items-center justify-center rounded-lg bg-white/20 overflow-hidden">
+                            <img src="assets/luas.png" alt="Ikon Luas" class="h-10w-10object-contain" />
+                        </div>
+                        <div>
+                            <h4 class="text-lg font-semibold mb-1">1.204 km²</h4>
+                            <p class="text-white text-sm">Luas Wilayah Cakupan</p>
+                        </div>
+                    </div>
+
+                    <!-- 3. Ketinggian -->
+                    <div class="flex items-start gap-4 rounded-lg shadow-md text-white bg-gradient-to-br from-yellow-600 to-orange-600 p-6">
+                        <div class="flex-shrink-0 h-14 w-14 flex items-center justify-center rounded-lg bg-white/20 overflow-hidden">
+                            <img src="assets/Ketinggian.png" alt="Ikon Ketinggian" class="h-10w-10object-contain" />
+                        </div>
+                        <div>
+                            <h4 class="text-lg font-semibold mb-1">200 - 1.500 m</h4>
+                            <p class="text-white text-sm">Ketinggian di atas permukaan laut</p>
+                        </div>
+                    </div>
+
+                    <!-- 4. Jumlah Penduduk -->
+                    <div class="flex items-start gap-4 rounded-lg shadow-md text-white bg-gradient-to-br from-purple-600 to-yellow-500 p-6">
+                        <div class="flex-shrink-0 h-14 w-14 flex items-center justify-center rounded-lg bg-white/20 overflow-hidden">
+                            <img src="assets/jp.png" alt="Ikon Penduduk" class="h-10w-10object-contain" />
+                        </div>
+                        <div>
+                            <h4 class="text-lg font-semibold mb-1">1.340.617 jiwa</h4>
+                            <p class="text-white text-sm">Jumlah Penduduk Laki Laki dan Perempuan</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CTA Box Full Width -->
+                <div class="w-full">
+                    <div class="rounded-xl p-10 bg-gradient-to-br from-cyan-600 via-cyan-900 to-cyan-700 text-white shadow-xl text-center flex flex-col justify-center items-center">
+                        <h3 class="text-3xl font-bold mb-4">Mulai Jelajahi SapaMajalengka</h3>
+                        <p class="text-white/90 mb-6 max-w-md">Akses informasi fasilitas umum dan aksesibilitas Kabupaten Majalengka dalam satu platform terintegrasi</p>
+                        <div class="flex flex-col sm:flex-row gap-4">
+                            <button class="border border-white px-6 py-3 rounded-md hover:bg-white hover:text-indigo-600 transition"><i data-lucide="map" class="inline-block mr-2 w-5 h-5"></i> Buka WebGIS</button>
+                            <button class="border border-white px-6 py-3 rounded-md hover:bg-white hover:text-indigo-600 transition"><i data-lucide="download" class="inline-block mr-2 w-5 h-5"></i> Unduh Aplikasi Mobile</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="w-full border-t bg-gradient-to-r from-cyan-700 via-white-800 to-cyan-700 text-white">
+        <div class="container mx-auto px-4 md:px-6 py-12">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+                <div class="col-span-1 md:col-span-2">
+                    <div class="flex items-center space-x-3 mb-4">
+                        <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-white/20">
+                            <img src="assets/sapa.png" alt="Logo Kabupaten Majalengka" class="h-15 w-15 object-contain" />
+                        </div>
+                        <span class="text-xl font-bold">SapaMajalengka</span>
+                        <p class="text-sm text-gray-300">WebGIS Kabupaten Majalengka</p>
+                    </div>
+                    <p class="text-gray-300 mb-4 max-w-md">
+                        Platform WebGIS untuk pemetaan fasilitas umum dan sarana aksesibilitas di Kabupaten Majalengka. Mendukung terciptanya Majalengka yang inklusif dan mudah diakses.
+                    </p>
+                    <div class="flex space-x-4">
+                        <button class="p-2 text-gray-300 hover:text-white transition-colors"><i data-lucide="mail" class="h-4 w-4"></i></button>
+                        <button class="p-2 text-gray-300 hover:text-white transition-colors"><i data-lucide="phone" class="h-4 w-4"></i></button>
+                        <button class="p-2 text-gray-300 hover:text-white transition-colors"><i data-lucide="globe" class="h-4 w-4"></i></button>
+                    </div>
+                </div>
+                <div>
+                    <h3 class="font-semibold mb-4">Layanan</h3>
+                    <ul class="space-y-2 text-sm text-gray-300">
+                        <li><a href="#" class="hover:text-white transition-colors">Pemetaan Fasilitas</a></li>
+                        <li><a href="#" class="hover:text-white transition-colors">Navigasi</a></li>
+                        <li><a href="#" class="hover:text-white transition-colors">Analisis Data</a></li>
+                        
+                    </ul>
+                </div>
+                <div>
+                    <h3 class="font-semibold mb-4">Informasi</h3>
+                    <ul class="space-y-2 text-sm text-gray-300">
+                        <li><a href="#" class="hover:text-white transition-colors">Tentang Kami</a></li>
+                        <li><a href="#" class="hover:text-white transition-colors">Panduan Penggunaan</a></li>
+                        <li><a href="#" class="hover:text-white transition-colors">FAQ</a></li>
+                        <li><a href="#" class="hover:text-white transition-colors">Kontak</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="border-t border-gray-700 mt-12 pt-8 text-center text-sm text-gray-400">
+                <p>&copy; 2025 Liqa Wapiq Kurnia. Hak cipta dilindungi undang-undang.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Service Detail Modal -->
+    <div id="serviceDetailModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-lg max-w-7xl w-full max-h-[90vh] overflow-hidden">
+            <!-- Modal content will be dynamically generated -->
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- Custom JavaScript -->
+    <script>
+        // Service data dengan informasi lengkap untuk setiap layanan
+        const servicesData = {
+            kesehatan: {
+                title: "Fasilitas Kesehatan",
+                description: "Rumah sakit, puskesmas, dan klinik dengan fasilitas aksesibilitas lengkap untuk melayanan kesehatan masyarakat Kabupaten Majalengka",
+                icon: "building-2",
+                gradient: "from-red-500 to-pink-500",
+                bgGradient: "from-red-50 to-pink-50",
+                count: "21+",
+                overview: {
+                    totalFacilities: 21,
+                    hospitals: 1,
+                    puskesmas: 11,
+                    clinics: 11,
+                    accessibleFacilities: 42,
+                    emergencyServices: "24/7",
+                    coverage: "Kecamatan",
+                },
+                services: [
+                    "Pelayanan Gawat Darurat",
+                    "Rawat Inap & Rawat Jalan",
+                    "Pelayanan Ibu dan Anak",
+                    "Imunisasi dan Vaksinasi",
+                    "Pelayanan Lansia",
+                    "Rehabilitasi Medik",
+                    "Laboratorium",
+                    "Radiologi",
+                    "Farmasi",
+                    "Ambulans",
+                ],
+                facilities: [
+                    {
+                        name: "RSUD Majalengka",
+                        address: "Jl. Raya Majalengka-Cirebon No. 1",
+                        type: "Rumah Sakit Umum Daerah",
+                        accessibility: "Lengkap",
+                        phone: "(0233) 281234",
+                        operatingHours: "24 Jam",
+                        services: ["IGD", "Rawat Inap", "Poliklinik", "Laboratorium", "Radiologi"],
+                        beds: 150,
+                        doctors: 25,
+                        specialists: ["Penyakit Dalam", "Bedah", "Anak", "Kandungan", "Mata"],
+                        ambulance: "Tersedia",
+                        parking: "Luas dengan akses difabel",
+                        lat: -6.836,
+                        lng: 108.227,
+                    },
+                    {
+                        name: "Puskesmas Majalengka Kota",
+                        address: "Jl. Ahmad Yani No. 45",
+                        type: "Puskesmas",
+                        accessibility: "Ramp, Toilet Khusus",
+                        phone: "(0233) 281567",
+                        operatingHours: "07:00 - 14:00",
+                        services: ["Pemeriksaan Umum", "KIA", "Imunisasi", "Gigi", "Laboratorium"],
+                        beds: 10,
+                        doctors: 8,
+                        specialists: ["Umum", "Gigi", "Bidan"],
+                        ambulance: "Tersedia",
+                        parking: "Tersedia",
+                        lat: -6.834,
+                        lng: 108.228,
+                    },
+                    {
+                        name: "Puskesmas Argapura",
+                        address: "Jl. Raya Argalingga No. 10",
+                        type: "Puskesmas",
+                        accessibility: "Ramp",
+                        phone: "(0233) 123456",
+                        operatingHours: "07:30 - 14:00",
+                        services: ["Pemeriksaan Umum", "Imunisasi", "KIA"],
+                        beds: 8,
+                        doctors: 5,
+                        specialists: ["Umum"],
+                        ambulance: "Ya",
+                        parking: "Sedang",
+                        lat: -6.8901,
+                        lng: 108.3001
+                    },
+                    {
+                        name: "Klinik Banjaran Sehat",
+                        address: "Jl. Cimeong No. 5",
+                        type: "Klinik Pratama",
+                        accessibility: "Ramp",
+                        phone: "(0233) 234567",
+                        operatingHours: "08:00 - 20:00",
+                        services: ["Pemeriksaan Umum", "Gigi"],
+                        beds: 4,
+                        doctors: 3,
+                        specialists: ["Umum", "Gigi"],
+                        ambulance: "Tidak",
+                        parking: "Terbatas",
+                        lat: -6.9202,
+                        lng: 108.3102
+                    },
+                    {
+                        name: "Klinik Cigasong Medika",
+                        address: "Jl. Baribis No. 8",
+                        type: "Klinik Pratama",
+                        accessibility: "Ramp",
+                        phone: "(0233) 456789",
+                        operatingHours: "08:00 - 20:00",
+                        services: ["Pemeriksaan Umum", "Gigi", "Laboratorium Sederhana"],
+                        beds: 5,
+                        doctors: 4,
+                        specialists: ["Umum", "Gigi"],
+                        ambulance: "Tidak",
+                        parking: "Sedang",
+                        lat: -6.9404,
+                        lng: 108.3304
+                    },
+                    {
+                        name: "Klinik Kadipaten Sehat",
+                        address: "Jl. Kadipaten No. 9",
+                        type: "Klinik Pratama",
+                        accessibility: "Ramp",
+                        phone: "(0233) 012345",
+                        operatingHours: "08:00 - 20:00",
+                        services: ["Pemeriksaan Umum", "Gigi"],
+                        beds: 3,
+                        doctors: 2,
+                        specialists: ["Umum", "Gigi"],
+                        ambulance: "Tidak",
+                        parking: "Terbatas",
+                        lat: -7.0010,
+                        lng: 108.3910
+                    },
+                     {
+                        name: "Puskesmas Lemahsugih",
+                        address: "Jl. Raya Lemahsugih No. 15",
+                        type: "Puskesmas",
+                        accessibility: "Ramp",
+                        phone: "(0233) 345678",
+                        operatingHours: "07:30 - 14:00",
+                        services: ["Pemeriksaan Umum", "Imunisasi", "KIA"],
+                        beds: 7,
+                        doctors: 4,
+                        specialists: ["Umum"],
+                        ambulance: "Ya",
+                        parking: "Luas",
+                        lat: -7.0313,
+                        lng: 108.4213
+                    },
+                    {
+                        name: "Klinik Leuwimunding Sehat",
+                        address: "Jl. Leuwimunding No. 17",
+                        type: "Klinik Pratama",
+                        accessibility: "Ramp",
+                        phone: "(0233) 456789",
+                        operatingHours: "08:00 - 20:00",
+                        services: ["Pemeriksaan Umum", "Gigi"],
+                        beds: 3,
+                        doctors: 2,
+                        specialists: ["Umum", "Gigi"],
+                        ambulance: "Tidak",
+                        parking: "Terbatas",
+                        lat: -7.0414,
+                        lng: 108.4314
+                    },
+                     {
+                        name: "Puskesmas Ligung",
+                        address: "Jl. Raya Ligung No. 19",
+                        type: "Puskesmas",
+                        accessibility: "Ramp dan Lift",
+                        phone: "(0233) 567890",
+                        operatingHours: "07:30 - 14:00",
+                        services: ["Pemeriksaan Umum", "Laboratorium Sederhana", "KIA"],
+                        beds: 10,
+                        doctors: 6,
+                        specialists: ["Umum"],
+                        ambulance: "Ya",
+                        parking: "Luas",
+                        lat: -7.0515,
+                        lng: 108.4415
+                    },
+                    {
+                        name: "Puskesmas Majalengka",
+                        address: "Jl. KH. Abdul Halim No. 1",
+                        type: "Puskesmas",
+                        accessibility: "Ramp dan Lift",
+                        phone: "(0233) 789345",
+                        operatingHours: "07:30 - 14:00",
+                        services: ["Pemeriksaan Umum", "Imunisasi", "KIA", "Laboratorium Sederhana"],
+                        beds: 12,
+                        doctors: 7,
+                        specialists: ["Umum"],
+                        ambulance: "Ya",
+                        parking: "Luas",
+                        lat: -6.8415,
+                        lng: 108.2401
+                    },
+                    {
+                        name: "Klinik Sukahaji Sehat",
+                        address: "Jl. Sukahaji No. 25",
+                        type: "Klinik Pratama",
+                        accessibility: "Ramp",
+                        phone: "(0233) 893456",
+                        operatingHours: "08:00 - 20:00",
+                        services: ["Pemeriksaan Umum", "Gigi", "KIA"],
+                        beds: 4,
+                        doctors: 3,
+                        specialists: ["Umum", "Gigi"],
+                        ambulance: "Tidak",
+                        parking: "Sedang",
+                        lat: -6.8749,
+                        lng: 108.2809
+                    },
+                     {
+                        name: "Klinik Rajagaluh Medika",
+                        address: "Jl. Rajagaluh No. 22",
+                        type: "Klinik Pratama",
+                        accessibility: "Ramp",
+                        phone: "(0233) 891234",
+                        operatingHours: "08:00 - 20:00",
+                        services: ["Pemeriksaan Umum", "Gigi"],
+                        beds: 3,
+                        doctors: 2,
+                        specialists: ["Umum", "Gigi"],
+                        ambulance: "Tidak",
+                        parking: "Terbatas",
+                        lat: -6.8552,
+                        lng: 108.2603
+                    },
+                    {
+                        name: "Klinik Kertajati Medika",
+                        address: "Jl. Kertajati No. 13",
+                        type: "Klinik Pratama",
+                        accessibility: "Ramp",
+                        phone: "(0233) 234567",
+                        operatingHours: "08:00 - 20:00",
+                        services: ["Pemeriksaan Umum", "Gigi"],
+                        beds: 4,
+                        doctors: 3,
+                        specialists: ["Umum", "Gigi"],
+                        ambulance: "Tidak",
+                        parking: "Sedang",
+                        lat: -7.0212,
+                        lng: 108.4112
+                    },
+                    {
+                        name: "Puskesmas Kasokandel",
+                        address: "Jl. Raya Kasokandel No. 11",
+                        type: "Puskesmas",
+                        accessibility: "Ramp dan Lift",
+                        phone: "(0233) 123456",
+                        operatingHours: "07:30 - 14:00",
+                        services: ["Pemeriksaan Umum", "Laboratorium Sederhana", "KIA"],
+                        beds: 9,
+                        doctors: 5,
+                        specialists: ["Umum"],
+                        ambulance: "Ya",
+                        parking: "Luas",
+                        lat: -7.0111,
+                        lng: 108.4011
+                    },
+                    {
+                        name: "Puskesmas Jatiwangi",
+                        address: "Jl. Raya Jatiwangi No. 7",
+                        type: "Puskesmas",
+                        accessibility: "Ramp",
+                        phone: "(0233) 901234",
+                        operatingHours: "07:30 - 14:00",
+                        services: ["Pemeriksaan Umum", "Imunisasi", "KIA"],
+                        beds: 8,
+                        doctors: 4,
+                        specialists: ["Umum"],
+                        ambulance: "Ya",
+                        parking: "Luas",
+                        lat: -6.9909,
+                        lng: 108.3809
+                    },
+                    {
+                        name: "Klinik Jatitujuh Medika",
+                        address: "Jl. Jatitujuh No. 3",
+                        type: "Klinik Pratama",
+                        accessibility: "Ramp",
+                        phone: "(0233) 890123",
+                        operatingHours: "08:00 - 20:00",
+                        services: ["Pemeriksaan Umum", "Gigi"],
+                        beds: 4,
+                        doctors: 3,
+                        specialists: ["Umum", "Gigi"],
+                        ambulance: "Tidak",
+                        parking: "Sedang",
+                        lat: -6.9808,
+                        lng: 108.3708
+                    },
+                    {
+                        name: "Puskesmas Dawuan",
+                        address: "Jl. Raya Dawuan No. 5",
+                        type: "Puskesmas",
+                        accessibility: "Ramp dan Lift",
+                        phone: "(0233) 789012",
+                        operatingHours: "07:30 - 14:00",
+                        services: ["Pemeriksaan Umum", "Laboratorium Sederhana", "KIA"],
+                        beds: 9,
+                        doctors: 5,
+                        specialists: ["Umum"],
+                        ambulance: "Ya",
+                        parking: "Luas",
+                        lat: -6.9707,
+                        lng: 108.3607
+                    },
+                    {
+                        name: "Klinik Cingambul Sehat",
+                        address: "Jl. Cingambul No. 12",
+                        type: "Klinik Pratama",
+                        accessibility: "Ramp",
+                        phone: "(0233) 678901",
+                        operatingHours: "08:00 - 20:00",
+                        services: ["Pemeriksaan Umum", "Gigi"],
+                        beds: 3,
+                        doctors: 2,
+                        specialists: ["Umum", "Gigi"],
+                        ambulance: "Tidak",
+                        parking: "Terbatas",
+                        lat: -6.9606,
+                        lng: 108.3506
+                    },
+                    {
+                        name: "Puskesmas Bantarujeg",
+                        address: "Jl. Raya Bantarujeg No. 15",
+                        type: "Puskesmas",
+                        accessibility: "Ramp dan Lift",
+                        phone: "(0233) 345678",
+                        operatingHours: "07:30 - 14:00",
+                        services: ["Pemeriksaan Umum", "Laboratorium Sederhana", "KIA"],
+                        beds: 10,
+                        doctors: 6,
+                        specialists: ["Umum"],
+                        ambulance: "Ya",
+                        parking: "Luas",
+                        lat: -6.9303,
+                        lng: 108.3203
+                    },
+                    {
+                        name: "Klinik Pratama Sehat",
+                        address: "Jl. Veteran No. 12",
+                        type: "Klinik Pratama",
+                        accessibility: "Ramp",
+                        phone: "(0233) 282890",
+                        operatingHours: "08:00 - 20:00",
+                        services: ["Pemeriksaan Umum", "Gigi", "Laboratorium Sederhana"],
+                        beds: 5,
+                        doctors: 4,
+                        specialists: ["Umum", "Gigi"],
+                        ambulance: "Tidak",
+                        parking: "Terbatas",
+                        lat: -6.838,
+                        lng: 108.225,
+                    },
+                    {
+                        name: "Puskesmas Cikijing",
+                        address: "Jl. Raya Cikijing No. 20",
+                        type: "Puskesmas",
+                        accessibility: "Ramp",
+                        phone: "(0233) 567890",
+                        operatingHours: "07:30 - 14:00",
+                        services: ["Pemeriksaan Umum", "Imunisasi", "KIA"],
+                        beds: 7,
+                        doctors: 5,
+                        specialists: ["Umum"],
+                        ambulance: "Ya",
+                        parking: "Luas",
+                        lat: -6.9505,
+                        lng: 108.3405
+                    }
+                    
+                ],
+            },
+            pendidikan: {
+                title: "Fasilitas Pendidikan",
+                description: "Sekolah dan universitas dengan akses yang mudah dijangkau dan fasilitas pendukung untuk semua kalangan",
+                icon: "users",
+                gradient: "from-green-500 to-emerald-500",
+                bgGradient: "from-green-50 to-emerald-50",
+                count: "28+",
+                overview: {
+                    totalFacilities: 28,
+                    universities: 1,
+                    highSchools: 8,
+                    middleSchools:5,
+                    elementarySchools: 250,
+                    accessibleFacilities: 320,
+                    students: "900+",
+                    teachers: "70+",
+                },
+                services: [
+                    "Pendidikan Dasar",
+                    "Pendidikan Menengah", 
+                    "Pendidikan Tinggi",
+                    "Pendidikan Khusus",
+                    "Pelatihan Vokasi",
+                    "Perpustakaan",
+                    "Laboratorium",
+                    "Fasilitas Olahraga",
+                    "Asrama",
+                    "Beasiswa",
+                ],
+                facilities: [
+                    {
+                        name: "SMAN 1 Majalengka",
+                        address: "Jl. Pendidikan No. 1",
+                        type: "SMA Negeri",
+                        accessibility: "Lengkap",
+                        phone: "(0233) 283456",
+                        operatingHours: "07:00 - 15:00",
+                        services: ["Pendidikan IPA", "IPS", "Bahasa", "Ekstrakurikuler"],
+                        students: 1200,
+                        teachers: 65,
+                        facilities: ["Lab IPA", "Lab Komputer", "Perpustakaan", "Lapangan Olahraga"],
+                        accreditation: "A",
+                        achievements: ["Juara OSN Provinsi", "Sekolah Adiwiyata"],
+                        lat: -6.835,
+                        lng: 108.223,
+                    },
+                    {
+                        name: "SMAN 1 Argapura",
+                        address: "Jl. Pendidikan Argapura No. 1",
+                        type: "SMA Negeri",
+                        accessibility: "Lengkap",
+                        phone: "(0233) 284991",
+                        operatingHours: "07:00 - 15:00",
+                        services: ["Pendidikan IPA", "IPS", "Bahasa", "Ekstrakurikuler"],
+                        students: 1063,
+                        teachers: 53,
+                        facilities: ["Lab IPA", "Lab Komputer", "Perpustakaan", "Lapangan Olahraga"],
+                        accreditation: "A",
+                        achievements: ["Juara OSN Provinsi", "Lomba Debat"],
+                        lat: -6.8,
+                        lng: 108.2
+                    },
+                    {
+                        name: "SMAN 1 Banjaran",
+                        address: "Jl. Pendidikan Banjaran No. 2",
+                        type: "SMA Negeri",
+                        accessibility: "Lengkap",
+                        phone: "(0233) 283132",
+                        operatingHours: "07:00 - 15:00",
+                        services: ["Pendidikan IPA", "IPS", "Bahasa", "Ekstrakurikuler"],
+                        students: 1242,
+                        teachers: 45,
+                        facilities: ["Lab IPA", "Lab Komputer", "Perpustakaan", "Lapangan Olahraga"],
+                        accreditation: "B",
+                        achievements: ["Juara OSN Provinsi", "Juara Basket Kabupaten"],
+                        lat: -6.81,
+                        lng: 108.21
+                    },
+                    {
+                        name: "SMAN 1 Bantarujeg",
+                        address: "Jl. Pendidikan Bantarujeg No. 3",
+                        type: "SMA Negeri",
+                        accessibility: "Lengkap",
+                        phone: "(0233) 288142",
+                        operatingHours: "07:00 - 15:00",
+                        services: ["Pendidikan IPA", "IPS", "Bahasa", "Ekstrakurikuler"],
+                        students: 874,
+                        teachers: 62,
+                        facilities: ["Lab IPA", "Lab Komputer", "Perpustakaan", "Lapangan Olahraga"],
+                        accreditation: "A",
+                        achievements: ["Juara OSN Provinsi", "Lomba Cerdas Cermat"],
+                        lat: -6.82,
+                        lng: 108.22
+                    },
+                    {
+                        name: "SMAN 1 Kadipaten",
+                        address: "Jl. Raya Kadipaten No. 45",
+                        type: "SMA Negeri",
+                        accessibility: "Lengkap",
+                        phone: "(0233) 289001",
+                        operatingHours: "07:00 - 15:00",
+                        services: ["Pendidikan IPA", "IPS", "Ekstrakurikuler"],
+                        students: 980,
+                        teachers: 55,
+                        facilities: ["Lab IPA", "Perpustakaan", "Ruang Multimedia", "Lapangan Sepak Bola"],
+                        accreditation: "A",
+                        achievements: ["Juara FLS2N", "Finalis Debat Bahasa Inggris"],
+                        lat: -6.8501,
+                        lng: 108.2350
+                    },
+                    {
+                        name: "SMAN 1 Jatiwangi",
+                        address: "Jl. Letkol H. Juanda No. 10",
+                        type: "SMA Negeri",
+                        accessibility: "Lengkap",
+                        phone: "(0233) 281122",
+                        operatingHours: "07:00 - 15:00",
+                        services: ["Pendidikan IPA", "IPS", "Bahasa"],
+                        students: 1100,
+                        teachers: 60,
+                        facilities: ["Lab IPA", "Lab Komputer", "Perpustakaan", "Aula"],
+                        accreditation: "A",
+                        achievements: ["Juara Basket Kab.", "Sekolah Ramah Anak"],
+                        lat: -6.8623,
+                        lng: 108.2622
+                    },
+                    {
+                        name: "SMAS PGRI Cikijing",
+                        address: "Jl. Raya Cikijing No. 88",
+                        type: "SMA Swasta",
+                        accessibility: "Cukup",
+                        phone: "(0233) 288800",
+                        operatingHours: "07:00 - 14:30",
+                        services: ["Pendidikan IPA", "IPS", "Ekstrakurikuler"],
+                        students: 540,
+                        teachers: 32,
+                        facilities: ["Perpustakaan", "Lab IPA", "Lapangan Basket"],
+                        accreditation: "B",
+                        achievements: ["Lomba Tari Tradisional Juara 1"],
+                        lat: -7.0421,
+                        lng: 108.3612
+                    },
+                    {
+                        name: "SMAN 1 Rajagaluh",
+                        address: "Jl. Cikeusik No. 7",
+                        type: "SMA Negeri",
+                        accessibility: "Lengkap",
+                        phone: "(0233) 277600",
+                        operatingHours: "07:00 - 15:00",
+                        services: ["Pendidikan IPA", "IPS", "Bahasa"],
+                        students: 760,
+                        teachers: 42,
+                        facilities: ["Lab IPA", "Lab Komputer", "Perpustakaan", "UKS"],
+                        accreditation: "A",
+                        achievements: ["Juara OSN Kabupaten", "Lomba Karya Ilmiah Remaja"],
+                        lat: -6.8842,
+                        lng: 108.1977
+                    },
+                    {
+                        "name": "SMKN 1 Jatitujuh",
+                        "address": "Jl. Raya Jatitujuh No. 10, Jatitujuh",
+                        "type": "SMK Negeri",
+                        "accessibility": "Lengkap",
+                        "phone": "(0233) 289500",
+                        "operatingHours": "07:00 - 16:00",
+                        "services": ["Teknik Otomotif", "Teknik Komputer Jaringan", "Agribisnis", "Ekstrakurikuler"],
+                        "students": 800,
+                        "teachers": 45,
+                        "facilities": ["Workshop Otomotif", "Lab Komputer", "Perpustakaan", "Lapangan"],
+                        "accreditation": "B",
+                        "achievements": ["Juara LKS Provinsi", "Sekolah Adiwiyata"],
+                        "lat": -6.8390,
+                        "lng": 108.1667
+                    },
+                    {
+                        "name": "MAN 2 Majalengka",
+                        "address": "Jl. Raya Rajagaluh No. 45, Rajagaluh",
+                        "type": "Madrasah Aliyah Negeri",
+                        "accessibility": "Lengkap",
+                        "phone": "(0233) 277700",
+                        "operatingHours": "07:00 - 15:00",
+                        "services": ["Pendidikan Keagamaan", "IPA", "IPS", "Bahasa Arab", "Ekstrakurikuler"],
+                        "students": 850,
+                        "teachers": 50,
+                        "facilities": ["Lab IPA", "Lab Bahasa", "Perpustakaan", "Masjid", "Ruang Keterampilan"],
+                        "accreditation": "A",
+                        "achievements": ["Juara MHQ Provinsi", "OSN Keagamaan"],
+                        "lat": -6.8842,
+                        "lng": 108.1977
+                    },
+                    {
+                        "name": "SMKN 1 Kertajati",
+                        "address": "Jl. Raya Kertajati No. 20, Kertajati",
+                        "type": "SMK Negeri",
+                        "accessibility": "Lengkap",
+                        "phone": "(0233) 289600",
+                        "operatingHours": "07:00 - 16:00",
+                        "services": ["Teknik Penerbangan", "Teknik Mesin", "Teknik Komputer Jaringan", "Ekstrakurikuler"],
+                        "students": 900,
+                        "teachers": 55,
+                        "facilities": ["Workshop Penerbangan", "Lab Komputer", "Perpustakaan", "Lapangan"],
+                        "accreditation": "A",
+                        "achievements": ["Kerjasama dengan Bandara Internasional Kertajati", "Juara LKS Nasional"],
+                        "lat": -6.7123,
+                        "lng": 108.2645
+                    },
+                     {
+                        "name": "SMAS PUI Banjaran",
+                        "address": "Jl. Raya Utara No.15, Banjaran",
+                        "type": "SMA Swasta",
+                        "accessibility": "Cukup",
+                        "phone": "(0233) 288800",
+                        "operatingHours": "07:00 - 14:30",
+                        "services": ["Pendidikan IPA", "IPS", "Bahasa", "Ekstrakurikuler"],
+                        "students": 540,
+                        "teachers": 32,
+                        "facilities": ["Perpustakaan", "Lab IPA", "Lapangan Basket"],
+                        "accreditation": "B",
+                        "achievements": ["Lomba Tari Tradisional Juara 1"],
+                        "lat": -7.0421,
+                        "lng": 108.3612
+                    },
+                     {
+                        "name": "SMAN 1 Lemahsugih",
+                        "address": "Jl. Raya Lemahsugih No. 10, Lemahsugih",
+                        "type": "SMA Negeri",
+                        "accessibility": "Lengkap",
+                        "phone": "(0233) 289700",
+                        "operatingHours": "07:00 - 15:00",
+                        "services": ["Pendidikan IPA", "IPS", "Bahasa", "Ekstrakurikuler"],
+                        "students": 850,
+                        "teachers": 50,
+                        "facilities": ["Lab IPA", "Lab Komputer", "Perpustakaan", "Lapangan Olahraga"],
+                        "accreditation": "A",
+                        "achievements": ["Juara OSN Kabupaten", "Lomba Karya Ilmiah Remaja"],
+                        "lat": -6.9500,
+                        "lng": 108.3000
+                    },
+                    {
+                        "name": "SMKN 1 Malausma",
+                        "address": "Jl. Raya Malausma No. 5, Malausma",
+                        "type": "SMK Negeri",
+                        "accessibility": "Lengkap",
+                        "phone": "(0233) 289800",
+                        "operatingHours": "07:00 - 16:00",
+                        "services": ["Teknik Otomotif", "Teknik Komputer Jaringan", "Agribisnis", "Ekstrakurikuler"],
+                        "students": 750,
+                        "teachers": 45,
+                        "facilities": ["Workshop Otomotif", "Lab Komputer", "Perpustakaan", "Lapangan"],
+                        "accreditation": "B",
+                        "achievements": ["Juara LKS Provinsi", "Sekolah Adiwiyata"],
+                        "lat": -6.9600,
+                        "lng": 108.3100
+                    },
+                    {
+                        "name": "SMKN Kehutanan Kadipaten",
+                        "address": "Jl. Raya Timur Sawala, Cipaku, Kadipaten",
+                        "type": "SMK Negeri",
+                        "accessibility": "Lengkap",
+                        "phone": "(0233) 289100",
+                        "operatingHours": "07:00 - 16:00",
+                        "services": ["Kehutanan", "Ekstrakurikuler"],
+                        "students": 600,
+                        "teachers": 40,
+                        "facilities": ["Lab Kehutanan", "Perpustakaan", "Lapangan"],
+                        "accreditation": "B",
+                        "achievements": ["Juara Lomba Karya Ilmiah Remaja", "Sekolah Adiwiyata"],
+                        "lat": -6.8600,
+                        "lng": 108.2100
+                    },
+                    {
+                        "name": "SMKS Global Jatitujuh",
+                        "address": "Jl. Raya Jatitujuh-Kadipaten No. 55, Panyingkiran, Jatitujuh",
+                        "type": "SMK Swasta",
+                        "accessibility": "Cukup",
+                        "phone": "(0233) 289800",
+                        "operatingHours": "07:00 - 14:30",
+                        "services": ["Teknik Komputer dan Jaringan", "Akuntansi", "Ekstrakurikuler"],
+                        "students": 500,
+                        "teachers": 30,
+                        "facilities": ["Lab Komputer", "Perpustakaan", "Lapangan"],
+                        "accreditation": "B",
+                        "achievements": ["Lomba Tari Tradisional Juara 1"],
+                        "lat": -6.8700,
+                        "lng": 108.2200
+                    },
+                    {
+                        "name": "SMAN 1 Cikijing",
+                        "address": "Jl. Dewi Sartika No. 07, Sukasari, Cikijing",
+                        "type": "SMA Negeri",
+                        "accessibility": "Lengkap",
+                        "phone": "(0233) 317170",
+                        "operatingHours": "07:00 - 15:00",
+                        "services": ["Pendidikan IPA", "IPS", "Bahasa", "Ekstrakurikuler"],
+                        "students": 716,
+                        "teachers": 26,
+                        "facilities": ["Lab IPA", "Lab Komputer", "Perpustakaan", "Lapangan Olahraga"],
+                        "accreditation": "A",
+                        "achievements": ["Juara OSN Kabupaten", "Sekolah Adiwiyata"],
+                        "lat": -7.0421,
+                        "lng": 108.3612
+                    },
+                    {
+                        "name": "SDN Cikijing 1",
+                        "address": "Jl. Cikijing No. 10, Cikijing",
+                        "type": "SD Negeri",
+                        "accessibility": "Lengkap",
+                        "phone": "(0233) 317180",
+                        "operatingHours": "07:00 - 13:00",
+                        "services": ["Pendidikan Dasar", "Ekstrakurikuler"],
+                        "students": 350,
+                        "teachers": 20,
+                        "facilities": ["Perpustakaan", "Lapangan Bermain", "Kamar Mandi"],
+                        "accreditation": "A",
+                        "achievements": ["Juara Lomba Kebersihan Sekolah"],
+                        "lat": -7.0419,
+                        "lng": 108.3608
+                    },
+                    {
+                        "name": "SDN Sukamaju 2",
+                        "address": "Jl. Sukamaju No. 45, Majalengka",
+                        "type": "SD Negeri",
+                        "accessibility": "Lengkap",
+                        "phone": "(0233) 318200",
+                        "operatingHours": "07:00 - 13:00",
+                        "services": ["Pendidikan Dasar", "Ekstrakurikuler"],
+                        "students": 280,
+                        "teachers": 18,
+                        "facilities": ["Perpustakaan", "Lapangan Bermain", "Lab Komputer"],
+                        "accreditation": "B",
+                        "achievements": ["Juara Lomba Mewarnai"],
+                        "lat": -6.8365,
+                        "lng": 108.2305
+                    },
+                    {
+                        "name": "SMPN 1 Cikijing",
+                        "address": "Jl. Raya Cikijing No. 20",
+                        "type": "SMP Negeri",
+                        "accessibility": "Lengkap",
+                        "phone": "(0233) 317171",
+                        "operatingHours": "07:00 - 15:00",
+                        "services": ["Pendidikan Menengah", "Ekstrakurikuler"],
+                        "students": 450,
+                        "teachers": 30,
+                        "facilities": ["Lab IPA", "Lab Komputer", "Perpustakaan", "Lapangan Olahraga"],
+                        "accreditation": "A",
+                        "achievements": ["Juara OSN Kabupaten", "Sekolah Ramah Anak"],
+                        "lat": -7.0420,
+                        "lng": 108.3605
+                    },
+                    {
+                        "name": "SMPN 2 Majalengka",
+                        "address": "Jl. Letkol H. Juanda No. 5, Majalengka",
+                        "type": "SMP Negeri",
+                        "accessibility": "Lengkap",
+                        "phone": "(0233) 318215",
+                        "operatingHours": "07:00 - 15:00",
+                        "services": ["Pendidikan Menengah", "Ekstrakurikuler"],
+                        "students": 480,
+                        "teachers": 33,
+                        "facilities": ["Lab IPA", "Perpustakaan", "Lapangan Olahraga"],
+                        "accreditation": "B",
+                        "achievements": ["Juara Lomba Cerdas Cermat Kabupaten"],
+                        "lat": -6.8380,
+                        "lng": 108.2320
+                    },
+                    {
+                        "name": "SDN Majalengka 1",
+                        "address": "Jl. Raya Majalengka No. 10, Majalengka",
+                        "type": "SD Negeri",
+                        "accessibility": "Lengkap",
+                        "phone": "(0233) 280001",
+                        "operatingHours": "07:00 - 13:00",
+                        "services": ["Pendidikan Dasar", "Ekstrakurikuler"],
+                        "students": 300,
+                        "teachers": 20,
+                        "facilities": ["Perpustakaan", "Lapangan Bermain", "Toilet"],
+                        "accreditation": "A",
+                        "achievements": ["Juara Kebersihan Sekolah"],
+                        "lat": -6.8360,
+                        "lng": 108.23,
+                        "kecamatan": "Majalengka"
+                    },
+                    {
+                        "name": "SDN Dawuan 1",
+                        "address": "Jl. Raya Dawuan No. 22, Dawuan",
+                        "type": "SD Negeri",
+                        "accessibility": "Lengkap",
+                        "phone": "(0233) 288001",
+                        "operatingHours": "07:00 - 13:00",
+                        "services": ["Pendidikan Dasar", "Ekstrakurikuler"],
+                        "students": 310,
+                        "teachers": 19,
+                        "facilities": ["Perpustakaan", "Lapangan Bermain", "Toilet"],
+                        "accreditation": "A",
+                        "achievements": ["Juara Kebersihan"],
+                        "lat": -6.8120,
+                        "lng": 108.28,
+                        "kecamatan": "Dawuan"
+                    },
+                    {
+                        "name": "SMPN 1 Dawuan",
+                        "address": "Jl. Raya Dawuan No. 15, Dawuan",
+                        "type": "SMP Negeri",
+                        "accessibility": "Lengkap",
+                        "phone": "(0233) 288002",
+                        "operatingHours": "07:00 - 15:00",
+                        "services": ["Pendidikan Menengah", "Ekstrakurikuler"],
+                        "students": 460,
+                        "teachers": 31,
+                        "facilities": ["Lab IPA", "Perpustakaan", "Lapangan Olahraga"],
+                        "accreditation": "A",
+                        "achievements": ["Juara OSN Kabupaten"],
+                        "lat": -6.8130,
+                        "lng": 108.2810,
+                        "kecamatan": "Dawuan"
+                    },
+                     {
+                        "name": "SMK PUI Cikijing",
+                        "address": "Jl. Raya Cikijing – Ciamis Km. 02, Cikijing",
+                        "type": "SMK Swasta",
+                        "accessibility": "Cukup",
+                        "phone": "(0233) 8896012",
+                        "operatingHours": "07:00 - 14:30",
+                        "services": ["Teknik Komputer dan Jaringan", "Akuntansi", "Ekstrakurikuler"],
+                        "students": 540,
+                        "teachers": 32,
+                        "facilities": ["Lab Komputer", "Perpustakaan", "Lapangan Basket"],
+                        "accreditation": "B",
+                        "achievements": ["Lomba Tari Tradisional Juara 1"],
+                        "lat": -7.0421,
+                        "lng": 108.3612
+                    },
+                    {
+                        "name": "MAS BKMU Cikijing",
+                        "address": "Jl. Cirawa No. 01, Cikijing",
+                        "type": "Madrasah Aliyah Swasta",
+                        "accessibility": "Cukup",
+                        "phone": "(0233) 8316699",
+                        "operatingHours": "07:00 - 15:00",
+                        "services": ["Pendidikan Keagamaan", "IPA", "IPS", "Ekstrakurikuler"],
+                        "students": 58,
+                        "teachers": 15,
+                        "facilities": ["Lab IPA", "Perpustakaan", "Masjid"],
+                        "accreditation": "B",
+                        "achievements": ["Juara MHQ Provinsi", "OSN Keagamaan"],
+                        "lat": -7.0421,
+                        "lng": 108.3612
+                    },
+                     {
+                        "name": "SMAN 1 Talaga",
+                        "address": "Jl. Ganeas No. 05, Talaga",
+                        "type": "SMA Negeri",
+                        "accessibility": "Lengkap",
+                        "phone": "(0233) 288200",
+                        "operatingHours": "07:00 - 15:00",
+                        "services": ["Pendidikan IPA", "IPS", "Bahasa", "Ekstrakurikuler"],
+                        "students": 950,
+                        "teachers": 58,
+                        "facilities": ["Lab IPA", "Lab Komputer", "Perpustakaan", "Lapangan Olahraga"],
+                        "accreditation": "A",
+                        "achievements": ["Juara OSN Kabupaten", "Lomba Karya Ilmiah Remaja"],
+                        "lat": -6.9112,
+                        "lng": 108.2895
+                    },
+                    {
+
+                        name: "Universitas Majalengka",
+                        address: "Jl. K.H. Abdul Halim No. 103",
+                        type: "Universitas Swasta",
+                        accessibility: "Ramp, Lift, Toilet Khusus",
+                        phone: "(0233) 284567",
+                        operatingHours: "07:00 - 21:00",
+                        services: ["S1", "S2", "Diploma", "Penelitian", "Pengabdian Masyarakat"],
+                        students: 5000,
+                        teachers: 180,
+                        facilities: ["Perpustakaan Digital", "Lab Komputer", "Auditorium", "Asrama"],
+                        accreditation: "B",
+                        achievements: ["Terakreditasi BAN-PT", "Kerjasama Internasional"],
+                        lat: -6.837,
+                        lng: 108.23,
+                    },
+                ],
+            },
+            transportasi: {
+                title: "Transportasi Umum",
+                description: "Terminal, halte, dan stasiun dengan fasilitas lengkap untuk kemudahan mobilitas masyarakat",
+                icon: "bus",
+                gradient: "from-yellow-500 to-orange-500",
+                bgGradient: "from-yellow-50 to-orange-50",
+                count: "8+",
+                overview: {
+                    totalFacilities:8,
+                    terminals: 3,
+                    busStops: 18,
+                    trainStations: 1,
+                    airports: 1,
+                    accessibleFacilities: 23,
+                    dailyPassengers: "15.000+",
+                    routes: "45+",
+                },
+                services: [
+                    "Transportasi Antar Kota",
+                    "Transportasi Lokal",
+                    "Kereta Api",
+                    "Ojek Online",
+                    "Taksi",
+                    "Rental Kendaraan",
+                    "Parkir Umum",
+                    "Bengkel",
+                    "SPBU",
+                    "Rest Area",
+                ],
+                facilities: [
+                    {
+                        name: "Terminal Majalengka",
+                        address: "Jl. Raya Terminal Majalengka",
+                        type: "Terminal Bus Tipe A",
+                        accessibility: "Lengkap",
+                        phone: "(0233) 286789",
+                        operatingHours: "24 Jam",
+                        services: ["Bus AKAP", "Bus AKDP", "Angkot", "Ojek", "Taksi"],
+                        capacity: "50 Bus",
+                        routes: ["Jakarta", "Bandung", "Cirebon", "Tasikmalaya"],
+                        facilities: ["Ruang Tunggu AC", "Toilet", "Mushola", "Kantin", "ATM"],
+                        parking: "Luas",
+                        security: "24 Jam",
+                        lat: -6.84,
+                        lng: 108.22,
+                    },
+                    {
+                        "name": "Bandara Internasional Jawa Barat (Kertajati)",
+                        "address": "Jl. Raya Kertajati, Kecamatan Kertajati, Kabupaten Majalengka",
+                        "type": "Bandara Internasional",
+                        "accessibility": "Lengkap",
+                        "phone": "(0233) 555555",
+                        "operatingHours": "24 Jam",
+                        "services": ["Penerbangan Domestik", "Penerbangan Internasional", "Rental Mobil", "Parkir Mobil"],
+                        "capacity": "Terminal dengan 3 gate",
+                        "routes": ["Jakarta", "Bandung", "Surabaya", "Singapura"],
+                        "facilities": ["Lounge VIP", "Toilet", "Kantin", "ATM", "Mushola", "Wi-Fi"],
+                        "parking": "Luas",
+                        "security": "24 Jam",
+                        "lat": -6.877,
+                        "lng": 108.263,
+                        "kecamatan": "Kertajati"
+                        },
+                    {
+                        "name": "Stasiun Kereta Majalengka",
+                        "address": "Jl. Stasiun No. 1, Majalengka",
+                        "type": "Stasiun Kereta Api",
+                        "accessibility": "Lengkap",
+                        "phone": "(0233) 281234",
+                        "operatingHours": "05:00 - 22:00",
+                        "services": ["Kereta Komuter", "Kereta Lokal"],
+                        "capacity": "5 Peron",
+                        "routes": ["Bandung", "Cirebon", "Jakarta"],
+                        "facilities": ["Ruang Tunggu", "Toilet", "Kantin", "Parkir Motor & Mobil"],
+                        "parking": "Luas",
+                        "security": "24 Jam",
+                        "lat": -6.835,
+                        "lng": 108.225,
+                        "kecamatan": "Majalengka"
+                    },
+                     {
+                        "name": "Halte Angkot Cikijing",
+                        "address": "Jl. Raya Cikijing No. 12",
+                        "type": "Halte Angkot",
+                        "accessibility": "Cukup",
+                        "phone": "-",
+                        "operatingHours": "06:00 - 20:00",
+                        "services": ["Angkot", "Ojek"],
+                        "capacity": "10 Angkot",
+                        "routes": ["Majalengka", "Kuningan", "Cirebon"],
+                        "facilities": ["Bangku Tunggu", "Atap Peneduh"],
+                        "parking": "Kecil",
+                        "security": "Pagi - Sore",
+                        "lat": -7.04,
+                        "lng": 108.36,
+                        "kecamatan": "Cikijing"
+                    },
+                    {
+                        "name": "Terminal Sindangwangi",
+                        "address": "Jl. Raya Sindangwangi No. 25",
+                        "type": "Terminal Bus Tipe C",
+                        "accessibility": "Cukup",
+                        "phone": "(0233) 286500",
+                        "operatingHours": "06:00 - 22:00",
+                        "services": ["Bus Lokal", "Angkot", "Ojek", "Taksi"],
+                        "capacity": "15 Bus",
+                        "routes": ["Majalengka", "Kuningan", "Tasikmalaya"],
+                        "facilities": ["Ruang Tunggu", "Toilet", "Warung Makan", "Mushola"],
+                        "parking": "Sedang",
+                        "security": "12 Jam",
+                        "lat": -6.77,
+                        "lng": 108.29,
+                        "kecamatan": "Sindangwangi"
+                    },
+                     {
+                        "name": "Pelabuhan Rakyat Cirebon",
+                        "address": "Jl. Pelabuhan, Kecamatan Cirebon Selatan",
+                        "type": "Pelabuhan Rakyat",
+                        "accessibility": "Cukup",
+                        "phone": "(0231) 123456",
+                        "operatingHours": "06:00 - 20:00",
+                        "services": ["Angkutan Laut Lokal", "Parkir Kapal Nelayan", "Gudang Barang"],
+                        "capacity": "20 Kapal",
+                        "routes": ["Pelabuhan Majalengka", "Pelabuhan Indramayu"],
+                        "facilities": ["Gudang", "Toilet", "Area Bongkar Muat"],
+                        "parking": "Luas",
+                        "security": "12 Jam",
+                        "lat": -6.725,
+                        "lng": 108.550,
+                        "kecamatan": "Cirebon Selatan"
+                    },
+                    {
+                        "name": "Terminal Rajagaluh",
+                        "address": "Jl. Raya Rajagaluh No. 1, Kecamatan Rajagaluh",
+                        "type": "Terminal Bus Tipe B",
+                        "accessibility": "Cukup",
+                        "phone": "(0233) 277123",
+                        "operatingHours": "05:00 - 22:00",
+                        "services": ["Bus AKDP", "Angkot", "Ojek"],
+                        "capacity": "20 Bus",
+                        "routes": ["Majalengka", "Cirebon", "Kuningan"],
+                        "facilities": ["Toilet", "Kantin", "Parkir Motor"],
+                        "parking": "Sedang",
+                        "security": "12 Jam",
+                        "lat": -6.8842,
+                        "lng": 108.1977,
+                        "kecamatan": "Rajagaluh"
+                    },
+                    {
+                        "name": "Terminal Jatitujuh",
+                        "address": "Jl. Raya Jatitujuh, Kecamatan Jatitujuh",
+                        "type": "Terminal Bus Tipe C",
+                        "accessibility": "Terbatas",
+                        "phone": "(0233) 289800",
+                        "operatingHours": "06:00 - 19:00",
+                        "services": ["Bus AKDP", "Angkot"],
+                        "capacity": "10 Bus",
+                        "routes": ["Majalengka", "Indramayu", "Kuningan"],
+                        "facilities": ["Toilet", "Parkir Motor"],
+                        "parking": "Kecil",
+                        "security": "8 Jam",
+                        "lat": -6.9,
+                        "lng": 108.25,
+                        "kecamatan": "Jatitujuh"
+                    },
+                ],
+            },
+            umum: {
+                title: "Fasilitas Umum",
+                description: "Taman, masjid, dan fasilitas publik lainnya yang dapat diakses oleh seluruh masyarakat",
+                icon: "globe",
+                gradient: "from-purple-500 to-pink",
+                bgGradient: "from-purple-50 to-violet-50",
+                count: "23+",
+                overview: {
+                    totalFacilities: 23,
+                    mosques: 10,
+                    parks: 4,
+                    governmentOffices: 4,
+                    markets: 3,
+                    accessibleFacilities: 10,
+                    dailyVisitors: "200+",
+                    coverage: "26 Kecamatan",
+                },
+                services: [
+                    "Ibadah",
+                    "Rekreasi",
+                    "Olahraga",
+                    "Pelayanan Publik",
+                    "Perdagangan",
+                    "Kebudayaan",
+                    "Sosial",
+                    "Kesehatan Masyarakat",
+                    "Pendidikan",
+                    "Keamanan",
+                ],
+                facilities: [
+                    {
+                        name: "Alun-alun Majalengka",
+                        address: "Jl. Ahmad Yani (Pusat Kota)",
+                        type: "Taman Kota",
+                        accessibility: "Lengkap",
+                        phone: "-",
+                        operatingHours: "24 Jam",
+                        services: ["Rekreasi", "Olahraga", "Event", "Kuliner"],
+                        area: "2 Hektar",
+                        facilities: ["Jogging Track", "Playground", "Amphitheater", "Toilet", "Parkir"],
+                        events: ["Car Free Day", "Festival Budaya", "Konser"],
+                        security: "CCTV & Petugas",
+                        maintenance: "Harian",
+                        lat: -6.836,
+                        lng: 108.228,
+                    },
+                    {
+                        "name": "Taman Bagja Raharja",
+                        "address": "Jl. KH. Abdul Halim, Kecamatan Majalengka",
+                        "type": "Taman Kota",
+                        "accessibility": "Lengkap",
+                        "phone": "-",
+                        "operatingHours": "06:00 - 22:00",
+                        "services": ["Rekreasi", "Olahraga", "Kuliner", "Ibadah"],
+                        "area": "1.5 Hektar",
+                        "facilities": ["Lapangan Futsal", "Taman Bermain", "Masjid", "Kantin", "Toilet"],
+                        "events": ["Festival Kuliner", "Lomba Anak", "Bazar UMKM"],
+                        "security": "Petugas & CCTV",
+                        "maintenance": "Harian",
+                        "lat": -6.8385,
+                        "lng": 108.2279
+                    },
+                    {
+                        "name": "Taman Sejarah Majalengka",
+                        "address": "Jl. KH. Abdul Halim, Majalengka Kulon",
+                        "type": "Taman Edukasi",
+                        "accessibility": "Lengkap",
+                        "phone": "-",
+                        "operatingHours": "08:00 - 17:00",
+                        "services": ["Edukasi Sejarah", "Rekreasi", "Pameran"],
+                        "area": "1 Hektar",
+                        "facilities": ["Relief Sejarah", "Totem Tokoh Lokal", "Gedung Dekranasda", "Toilet", "Parkir"],
+                        "events": ["Pameran Kerajinan", "Workshop Sejarah"],
+                        "security": "Petugas",
+                        "maintenance": "Berkala",
+                        "lat": -6.8392,
+                        "lng": 108.2285
+                    },
+                    {
+                        "name": "Taman Wisata Keliling Dunia",
+                        "address": "Desa Lemahputih, Kecamatan Lemahsugih",
+                        "type": "Taman Tematik",
+                        "accessibility": "Cukup",
+                        "phone": "-",
+                        "operatingHours": "08:00 - 17:00",
+                        "services": ["Rekreasi", "Edukasi", "Kuliner"],
+                        "area": "2 Hektar",
+                        "facilities": ["Miniatur Dunia", "Playground", "Kebun Binatang Mini", "Kantin", "Toilet"],
+                        "events": ["Lomba Mewarnai", "Pertunjukan Boneka"],
+                        "security": "Petugas",
+                        "maintenance": "Harian",
+                        "lat": -6.9745,
+                        "lng": 108.2967
+                    },
+                    {
+                        "name": "Taman Kota Bundaran Munjul Indah",
+                        "address": "Jl. KH. Abdul Halim, Kelurahan Munjul, Kecamatan Majalengka",
+                        "type": "Taman Kota",
+                        "accessibility": "Lengkap",
+                        "phone": "-",
+                        "operatingHours": "24 Jam",
+                        "services": ["Rekreasi", "Olahraga", "Event"],
+                        "area": "1 Hektar",
+                        "facilities": ["Monumen Dirgantara", "Jogging Track", "Taman Bermain", "Toilet", "Parkir"],
+                        "events": ["Car Free Day", "Festival Budaya"],
+                        "security": "CCTV & Petugas",
+                        "maintenance": "Harian",
+                        "lat": -6.8365,
+                        "lng": 108.2290
+                    },
+                    {
+                        "name": "Alun-alun Majalengka",
+                        "address": "Jl. Ahmad Yani, Pusat Kota Majalengka",
+                        "type": "Taman Kota",
+                        "accessibility": "Lengkap",
+                        "phone": "-",
+                        "operatingHours": "24 Jam",
+                        "services": ["Rekreasi", "Olahraga", "Event", "Kuliner"],
+                        "area": "2 Hektar",
+                        "facilities": ["Jogging Track", "Playground", "Amphitheater", "Toilet", "Parkir"],
+                        "events": ["Car Free Day", "Festival Budaya", "Konser"],
+                        "security": "CCTV & Petugas",
+                        "maintenance": "Harian",
+                        "lat": -6.8360,
+                        "lng": 108.2280
+                    },
+                    {
+                        "name": "Lapang GGM (Gelanggang Generasi Muda)",
+                        "address": "Jl. Pemuda No.37, Majalengka Kulon, Kecamatan Majalengka",
+                        "type": "Lapangan Olahraga & Ruang Publik",
+                        "accessibility": "Lengkap",
+                        "phone": "-",
+                        "operatingHours": "05:00 - 22:00",
+                        "services": ["Jogging", "Olahraga", "Rekreasi", "Kuliner"],
+                        "area": "2 Hektar",
+                        "facilities": ["Jogging Track", "Skywalk", "Foodcourt", "Toilet", "Parkir"],
+                        "events": ["Senam Pagi", "Bazar Kuliner", "Festival Musik"],
+                        "security": "CCTV & Petugas",
+                        "maintenance": "Harian",
+                        "lat": -6.8395,
+                        "lng": 108.2287
+                    },
+                    {
+                        "name": "Skywalk Raharja",
+                        "address": "Jl. Pemuda, Majalengka Kulon, Kecamatan Majalengka",
+                        "type": "Skywalk & Pusat Kuliner",
+                        "accessibility": "Lengkap",
+                        "phone": "-",
+                        "operatingHours": "10:00 - 22:00",
+                        "services": ["Kuliner", "Rekreasi", "Nongkrong"],
+                        "area": "0.5 Hektar",
+                        "facilities": ["Kios Kuliner", "Tempat Duduk", "Penerangan", "Toilet"],
+                        "events": ["Festival Kuliner", "Live Music"],
+                        "security": "Petugas",
+                        "maintenance": "Harian",
+                        "lat": -6.8390,
+                        "lng": 108.2285
+                    },
+                    {
+                        "name": "Taman Sejarah Majalengka",
+                        "address": "Bundaran Munjul, Majalengka Kulon, Kecamatan Majalengka",
+                        "type": "Taman Edukasi Sejarah",
+                        "accessibility": "Lengkap",
+                        "phone": "-",
+                        "operatingHours": "08:00 - 17:00",
+                        "services": ["Edukasi", "Rekreasi", "Wisata Sejarah"],
+                        "area": "1 Hektar",
+                        "facilities": ["Relief Sejarah", "Diorama", "Dekranasda", "Toilet", "Parkir"],
+                        "events": ["Pameran Sejarah", "Workshop Edukasi"],
+                        "security": "Petugas",
+                        "maintenance": "Berkala",
+                        "lat": -6.8380,
+                        "lng": 108.2290
+                    },
+                    {
+                        "name": "Taman Raharja",
+                        "address": "Jl. KH. Abdul Halim, Munjul, Kecamatan Majalengka",
+                        "type": "Taman Kota",
+                        "accessibility": "Lengkap",
+                        "phone": "-",
+                        "operatingHours": "06:00 - 22:00",
+                        "services": ["Rekreasi", "Olahraga", "Kuliner"],
+                        "area": "1.5 Hektar",
+                        "facilities": ["Jogging Track", "Monumen Pesawat", "Foodcourt", "Toilet", "Parkir"],
+                        "events": ["Festival Kuliner", "Senam Pagi"],
+                        "security": "CCTV & Petugas",
+                        "maintenance": "Harian",
+                        "lat": -6.8375,
+                        "lng": 108.2280
+                    },
+                    {
+                        "name": "Majalengka Creative Center",
+                        "address": "Jl. Suha No.01, Majalengka Wetan, Kecamatan Majalengka",
+                        "type": "Pusat Kreativitas & Olahraga",
+                        "accessibility": "Lengkap",
+                        "phone": "-",
+                        "operatingHours": "08:00 - 22:00",
+                        "services": ["Olahraga", "Kesenian", "Kuliner"],
+                        "area": "1 Hektar",
+                        "facilities": ["Lapangan Basket", "Arena Skateboard", "Panggung Terbuka", "Toilet", "Parkir"],
+                        "events": ["Pertunjukan Seni", "Kompetisi Olahraga"],
+                        "security": "CCTV & Petugas",
+                        "maintenance": "Harian",
+                        "lat": -6.8382,
+                        "lng": 108.2295
+                    },
+                    {
+                        "name": "Taman Kota Monumen Dirgantara",
+                        "address": "Bundaran Munjul Indah, Kelurahan Munjul, Kecamatan Majalengka",
+                        "type": "Taman Kota",
+                        "accessibility": "Lengkap",
+                        "phone": "-",
+                        "operatingHours": "06:00 - 22:00",
+                        "services": ["Rekreasi", "Edukasi", "Olahraga"],
+                        "area": "1 Hektar",
+                        "facilities": ["Monumen Pesawat A4 Skyhawk", "Jogging Track", "Toilet", "Parkir"],
+                        "events": ["Pameran Dirgantara", "Senam Pagi"],
+                        "security": "Petugas",
+                        "maintenance": "Harian",
+                        "lat": -6.8370,
+                        "lng": 108.2282
+                    },
+                    {
+                        "name": "Masjid Agung Al-Imam Majalengka",
+                        "address": "Jl. KH. Abdul Halim, Majalengka Kulon, Kecamatan Majalengka",
+                        "type": "Masjid Agung",
+                        "accessibility": "Lengkap",
+                        "phone": "-",
+                        "operatingHours": "24 Jam",
+                        "services": ["Salat Lima Waktu", "Kajian Islam", "Takjil Gratis"],
+                        "area": "Luas",
+                        "facilities": ["Tempat Wudu", "Toilet", "Gedung Serbaguna"],
+                        "events": ["Salat Tarawih", "Tadarus Al-Quran", "Pesantren Kilat"],
+                        "security": "Petugas",
+                        "maintenance": "Harian",
+                        "lat": -6.836,
+                        "lng": 108.228
+                    },
+                    {
+                        "name": "Masjid Al-Islah",
+                        "address": "Jalan Masjid No. 06, Desa Talagakulon, Kecamatan Talaga",
+                        "type": "Masjid Jami",
+                        "accessibility": "Cukup",
+                        "phone": "-",
+                        "operatingHours": "24 Jam",
+                        "services": ["Salat Lima Waktu", "Kajian Islam"],
+                        "area": "976 m²",
+                        "facilities": ["Tempat Wudu", "Toilet"],
+                        "events": ["Pengajian Rutin"],
+                        "security": "Petugas",
+                        "maintenance": "Berkala",
+                        "lat": -7.050,
+                        "lng": 108.300
+                    },
+                     {
+                        "name": "Masjid Jami Al-Hijriyyah",
+                        "address": "RT 01 RW 01, Desa Sukakerta, Kecamatan Kertajati",
+                        "type": "Masjid Jami",
+                        "accessibility": "Cukup",
+                        "phone": "-",
+                        "operatingHours": "24 Jam",
+                        "services": ["Salat Lima Waktu", "Santunan Anak Yatim"],
+                        "area": "Sedang",
+                        "facilities": ["Tempat Wudu", "Toilet"],
+                        "events": ["Santunan Anak Yatim"],
+                        "security": "Petugas",
+                        "maintenance": "Berkala",
+                        "lat": -6.700,
+                        "lng": 108.150
+                    },
+                    {
+                        "name": "Masjid Besar Al-Hurriyyah",
+                        "address": "Jl. A. Yani No.58, Desa Sutawangi, Kecamatan Jatiwangi",
+                        "type": "Masjid Besar",
+                        "accessibility": "Lengkap",
+                        "phone": "(0233) 8887708",
+                        "operatingHours": "24 Jam",
+                        "services": ["Salat Lima Waktu", "Kajian Islam", "Zakat"],
+                        "area": "Luas",
+                        "facilities": ["Tempat Wudu", "Toilet"],
+                        "events": ["Buka Puasa Bersama", "Salat Tarawih"],
+                        "security": "Petugas",
+                        "maintenance": "Harian",
+                        "lat": -6.750,
+                        "lng": 108.250
+                    },
+                     {
+                        "name": "Masjid Assalafiyah",
+                        "address": "Jalan Jogja Kecil, Desa Sindang, Kecamatan Sindang",
+                        "type": "Masjid Jami",
+                        "accessibility": "Cukup",
+                        "phone": "-",
+                        "operatingHours": "24 Jam",
+                        "services": ["Salat Lima Waktu", "Kajian Islam"],
+                        "area": "Sedang",
+                        "facilities": ["Tempat Wudu", "Toilet"],
+                        "events": ["Pengajian Rutin"],
+                        "security": "Petugas",
+                        "maintenance": "Berkala",
+                        "lat": -6.800,
+                        "lng": 108.200
+                    },
+                    {
+                        "name": "Masjid Raharja Khoirul Ummah",
+                        "address": "Kawasan Taman Bagja Raharja, Kecamatan Majalengka",
+                        "type": "Masjid Modern",
+                        "accessibility": "Lengkap",
+                        "phone": "-",
+                        "operatingHours": "24 Jam",
+                        "services": ["Salat Lima Waktu", "Kajian Islam"],
+                        "area": "Luas",
+                        "facilities": ["Lapangan Futsal", "Taman Bermain"],
+                        "events": ["Pengajian Rutin"],
+                        "security": "Petugas",
+                        "maintenance": "Harian",
+                        "lat": -6.835,
+                        "lng": 108.227
+                    },
+                    {
+                        "name": "Masjid Al-Muttaqin",
+                        "address": "Jl. Raya Cikijing - Banjaran, Desa Cidulang, Kecamatan Cikijing",
+                        "type": "Masjid Jami",
+                        "accessibility": "Cukup",
+                        "phone": "-",
+                        "operatingHours": "24 Jam",
+                        "services": ["Salat Lima Waktu", "Pengajian Subuh"],
+                        "area": "900 m²",
+                        "facilities": ["Tempat Wudu", "Toilet", "Area Parkir"],
+                        "events": ["Kajian Kitab Kuning", "Maulid Nabi"],
+                        "security": "Petugas",
+                        "maintenance": "Rutin",
+                        "lat": -7.0302,
+                        "lng": 108.3781
+                    },
+                     {
+                        "name": "Masjid Jami Nurul Huda",
+                        "address": "Jl. Raya Lemahsugih, Desa Lemahsugih, Kecamatan Lemahsugih",
+                        "type": "Masjid Jami",
+                        "accessibility": "Cukup",
+                        "phone": "-",
+                        "operatingHours": "24 Jam",
+                        "services": ["Salat Lima Waktu", "Khutbah Jumat"],
+                        "area": "1.100 m²",
+                        "facilities": ["Tempat Wudu", "Toilet"],
+                        "events": ["Pengajian Malam Jumat", "Peringatan Hari Besar Islam"],
+                        "security": "Warga Sekitar",
+                        "maintenance": "Bersama DKM",
+                        "lat": -7.1445,
+                        "lng": 108.3472
+                    },
+                    {
+                        "name": "Masjid Besar Talaga",
+                        "address": "Jl. Talaga - Cikijing, Desa Talagawetan, Kecamatan Talaga",
+                        "type": "Masjid Besar",
+                        "accessibility": "Lengkap",
+                        "phone": "(0233) 871092",
+                        "operatingHours": "24 Jam",
+                        "services": ["Salat Lima Waktu", "Salat Jumat", "Kajian Subuh"],
+                        "area": "1.200 m²",
+                        "facilities": ["Tempat Wudu", "Toilet", "Area Parkir", "Taman"],
+                        "events": ["Pawai 1 Muharram", "Buka Bersama Ramadhan"],
+                        "security": "Petugas DKM",
+                        "maintenance": "Harian",
+                        "lat": -7.0708,
+                        "lng": 108.3237
+                    },
+                    {
+                        "name": "Masjid Al-Ikhlas",
+                        "address": "Desa Sukasari Kidul, Kecamatan Argapura",
+                        "type": "Masjid Jami",
+                        "accessibility": "Cukup",
+                        "phone": "-",
+                        "operatingHours": "24 Jam",
+                        "services": ["Salat Lima Waktu", "Pengajian"],
+                        "area": "700 m²",
+                        "facilities": ["Tempat Wudu", "Toilet"],
+                        "events": ["Peringatan Isra Mi'raj"],
+                        "security": "Petugas",
+                        "maintenance": "Bersama Warga",
+                        "lat": -6.9884,
+                        "lng": 108.3301
+                    },
+                    {
+                        "name": "Gereja Kristen Pasundan Talaga",
+                        "address": "Jl. Pasundan No. 10, Talaga Kulon, Kecamatan Talaga",
+                        "type": "Gereja Kristen",
+                        "accessibility": "Cukup",
+                        "phone": "(0233) 822300",
+                        "operatingHours": "07:00 - 18:00",
+                        "services": ["Ibadah Minggu", "Sekolah Minggu"],
+                        "area": "600 m²",
+                        "facilities": ["Ruang Ibadah", "Toilet", "Parkir"],
+                        "events": ["Natal", "Paskah", "Retret Remaja"],
+                        "security": "Petugas",
+                        "maintenance": "Rutin",
+                        "lat": -7.0725,
+                        "lng": 108.3187
+                    },
+                ],
+            },
+            makanan: {
+                title: "Makanan Khas",
+                description: "Nasi Lengko, Doclang, Oncom Goreng, Kecap Manis, dan berbagai makanan khas Majalengka lainnya",
+                icon: "utensils",
+                gradient: "from-orange-500 to-red-500",
+                bgGradient: "from-orange-50 to-red-50",
+                count: "16+",
+                overview: {
+                    totalRestaurants: 16,
+                    accessibleVenues: 120,
+                    dailyVisitors: "500+",
+                    priceRange: "Rp 5.000 - 50.000",
+                },
+                services: [
+                    "Makanan Tradisional",
+                    "Restoran Modern",
+                    "Kafe",
+                    "Warung Makan",
+                    "Catering",
+                    "Delivery",
+                    "Take Away",
+                    "Paket Wisata Kuliner",
+                    "Cooking Class",
+                    "Food Festival",
+                ],
+                facilities: [
+                    {
+                        name: "Nasi Lengko Bu Imas",
+                        address: "Jl. Pasar Majalengka No. 15",
+                        type: "Warung Tradisional",
+                        accessibility: "Akses Mudah",
+                        phone: "0812-3456-7890",
+                        operatingHours: "06:00 - 14:00",
+                        services: ["Nasi Lengko", "Es Dawet", "Kopi", "Take Away"],
+                        capacity: "30 Orang",
+                        specialties: ["Nasi Lengko Original", "Sambal Khas", "Kerupuk Udang"],
+                        price: "Rp 8.000 - 15.000",
+                        established: "1985",
+                        awards: ["Kuliner Legendaris Majalengka"],
+                        lat: -6.836,
+                        lng: 108.227,
+                    },
+                    {
+                        "name": "Saung Balong",
+                        "address": "Jl. Raya Cirebon-Bandung Palimanan, Majasuka, Kec. Palasah, Kabupaten Majalengka",
+                        "type": "Rumah Makan Sunda",
+                        "accessibility": "Akses Mudah",
+                        "phone": "0813-1300-0990",
+                        "operatingHours": "10:00 - 21:00",
+                        "services": ["Makan di Tempat", "Take Away"],
+                        "capacity": "50 Orang",
+                        "specialties": ["Ikan Bakar", "Sambal Terasi", "Lalapan Segar"],
+                        "price": "Rp 15.000 - 50.000",
+                        "established": "2010",
+                        "awards": [],
+                        "lat": -6.733,
+                        "lng": 108.226
+                    },
+                    {
+                        "name": "Rumah Makan Neng Euis",
+                        "address": "Jl. Ujungberung – Rajagaluh RT.10/RW.05, Sumber, Ujungberung, Kabupaten Majalengka",
+                        "type": "Rumah Makan Lesehan",
+                        "accessibility": "Akses Mudah",
+                        "phone": "(0233) 8514140",
+                        "operatingHours": "09:00 - 20:00",
+                        "services": ["Makan di Tempat", "Take Away"],
+                        "capacity": "40 Orang",
+                        "specialties": ["Lauk Sarebu", "Pepes Ikan", "Sambal Khas"],
+                        "price": "Rp 10.000 - 40.000",
+                        "established": "2005",
+                        "awards": [],
+                        "lat": -6.850,
+                        "lng": 108.300
+                    },
+                    {
+                        "name": "Sawah Aki",
+                        "address": "Jl. Pejuang No. 45, Sindangkasih, Kecamatan Majalengka, Kabupaten Majalengka",
+                        "type": "Restoran Keluarga",
+                        "accessibility": "Akses Mudah",
+                        "phone": "-",
+                        "operatingHours": "09:00 - 21:00",
+                        "services": ["Makan di Tempat", "Take Away"],
+                        "capacity": "100 Orang",
+                        "specialties": ["Iga Bakar", "Ikan Bakar", "Seafood"],
+                        "price": "Rp 15.000 - 60.000",
+                        "established": "2009",
+                        "awards": [],
+                        "lat": -6.830,
+                        "lng": 108.230
+                    },
+                    {
+                        "name": "Warung Lotek Ceu Enok",
+                        "address": "Jl. Siti Armilah No.47, Majalengka Kulon, Kec. Majalengka, Kabupaten Majalengka",
+                        "type": "Warung Tradisional",
+                        "accessibility": "Akses Mudah",
+                        "phone": "0853-2289-1659",
+                        "operatingHours": "10:00 - 15:15",
+                        "services": ["Makan di Tempat", "Take Away"],
+                        "capacity": "20 Orang",
+                        "specialties": ["Lotek Khas Majalengka", "Rujak"],
+                        "price": "Rp 8.000 - 20.000",
+                        "established": "1995",
+                        "awards": [],
+                        "lat": -6.836,
+                        "lng": 108.227
+                    },
+                    {
+                        "name": "Kedai T’Entin",
+                        "address": "Jl. Raya Timur No.20, Dawuan, Kec. Kadipaten, Kab. Majalengka",
+                        "type": "Rumah Makan Sunda",
+                        "accessibility": "Akses Mudah",
+                        "phone": "-",
+                        "operatingHours": "08:00 - 20:00",
+                        "services": ["Makan di Tempat", "Take Away"],
+                        "capacity": "60 Orang",
+                        "specialties": ["Nasi Tutug Oncom", "Ayam Bakar", "Ikan Bakar"],
+                        "price": "Rp 10.000 - 40.000",
+                        "established": "2010",
+                        "awards": [],
+                        "lat": -6.850,
+                        "lng": 108.250
+                    },
+                    {
+                        "name": "Pondok Dahar H. M. Djaja",
+                        "address": "Jl. K.H. Abdul Halim, Munjul, Kecamatan Majalengka, Kabupaten Majalengka",
+                        "type": "Restoran Seafood",
+                        "accessibility": "Akses Mudah",
+                        "phone": "-",
+                        "operatingHours": "10:00 - 22:00",
+                        "services": ["Makan di Tempat", "Take Away"],
+                        "capacity": "80 Orang",
+                        "specialties": ["Gurame Bakar", "Ikan Merah Saus Tiram", "Salmon ala Tauco"],
+                        "price": "Rp 20.000 - 60.000",
+                        "established": "2000",
+                        "awards": [],
+                        "lat": -6.837,
+                        "lng": 108.227
+                    },
+                    {
+                        "name": "Pujasari Kebon Kakek",
+                        "address": "Desa Liangjulang, Kecamatan Kadipaten, Kabupaten Majalengka",
+                        "type": "Pusat Jajanan",
+                        "accessibility": "Akses Mudah",
+                        "phone": "-",
+                        "operatingHours": "08:00 - 20:00",
+                        "services": ["Makan di Tempat", "Take Away"],
+                        "capacity": "100 Orang",
+                        "specialties": ["Aneka Jajanan Tradisional", "Makanan Berat"],
+                        "price": "Rp 5.000 - 30.000",
+                        "established": "2018",
+                        "awards": [],
+                        "lat": -6.850,
+                        "lng": 108.250
+                    },
+                    {
+                        name: "Doclang Pak Udin",
+                        address: "Jl. Veteran No. 25",
+                        type: "Warung Tradisional",
+                        accessibility: "Akses Mudah",
+                        phone: "0813-2345-6789",
+                        operatingHours: "16:00 - 22:00",
+                        services: ["Doclang", "Tahu Gejrot", "Es Cendol"],
+                        capacity: "25 Orang",
+                        specialties: ["Doclang Spesial", "Bumbu Kacang Khas", "Kerupuk Melinjo"],
+                        price: "Rp 5.000 - 12.000",
+                        established: "1990",
+                        awards: ["Favorit Wisatawan"],
+                        lat: -6.838,
+                        lng: 108.225,
+                    },
+                    {
+                        "name": "Pujasari Kebon Kakek",
+                        "address": "Desa Liangjulang, Kecamatan Kadipaten, Kabupaten Majalengka",
+                        "type": "Pusat Jajanan",
+                        "accessibility": "Akses Mudah",
+                        "phone": "-",
+                        "operatingHours": "08:00 - 20:00",
+                        "services": ["Makan di Tempat", "Take Away"],
+                        "capacity": "100 Orang",
+                        "specialties": ["Aneka Jajanan Tradisional", "Makanan Berat"],
+                        "price": "Rp 5.000 - 30.000",
+                        "established": "2018",
+                        "awards": [],
+                        "lat": -6.850,
+                        "lng": 108.250
+                    },
+                    {
+                        "name": "Saung Syuro",
+                        "address": "Jl. Pejuang No.45, Cicurug, Kec. Majalengka, Kab. Majalengka",
+                        "type": "Rumah Makan Sunda",
+                        "accessibility": "Akses Mudah",
+                        "phone": "0852-2483-6835",
+                        "operatingHours": "09:00 - 21:00",
+                        "services": ["Makan di Tempat", "Take Away"],
+                        "capacity": "50 Orang",
+                        "specialties": ["Gurame Bakar", "Karedok", "Sayur Asem"],
+                        "price": "Rp 15.000 - 50.000",
+                        "established": "2008",
+                        "awards": [],
+                        "lat": -6.837,
+                        "lng": 108.227
+                    },
+                     {
+                        "name": "Pondok Dahar Pak H.M Djaja",
+                        "address": "Jl. KH Abdul Halim, Munjul, Kec. Majalengka, Kab. Majalengka",
+                        "type": "Restoran Seafood",
+                        "accessibility": "Akses Mudah",
+                        "phone": "-",
+                        "operatingHours": "10:00 - 22:00",
+                        "services": ["Makan di Tempat", "Take Away"],
+                        "capacity": "80 Orang",
+                        "specialties": ["Gurame Bakar", "Ikan Merah Saus Tiram", "Salmon ala Tauco"],
+                        "price": "Rp 20.000 - 60.000",
+                        "established": "2000",
+                        "awards": [],
+                        "lat": -6.837,
+                        "lng": 108.227
+                    },
+                    {
+                        "name": "Warung Lotek Ceu Enok",
+                        "address": "Jl. Siti Armilah No.47, Majalengka Kulon, Kec. Majalengka, Kab. Majalengka",
+                        "type": "Warung Tradisional",
+                        "accessibility": "Akses Mudah",
+                        "phone": "0853-2289-1659",
+                        "operatingHours": "10:00 - 15:15",
+                        "services": ["Makan di Tempat", "Take Away"],
+                        "capacity": "20 Orang",
+                        "specialties": ["Lotek Khas Majalengka", "Rujak"],
+                        "price": "Rp 8.000 - 20.000",
+                        "established": "1995",
+                        "awards": [],
+                        "lat": -6.836,
+                        "lng": 108.227
+                    },
+                    {
+                        "name": "Rumah Makan Nera",
+                        "address": "Jl. Gerakan Koperasi No.72, Kec. Majalengka, Kab. Majalengka",
+                        "type": "Rumah Makan Sunda",
+                        "accessibility": "Akses Mudah",
+                        "phone": "-",
+                        "operatingHours": "09:00 - 21:00",
+                        "services": ["Makan di Tempat", "Take Away"],
+                        "capacity": "60 Orang",
+                        "specialties": ["Masakan Olahan Ikan"],
+                        "price": "Rp 15.000 - 45.000",
+                        "established": "2005",
+                        "awards": [],
+                        "lat": -6.838,
+                        "lng": 108.229
+                    },
+                    {
+                        "name": "Rumah Makan Tiga Dara",
+                        "address": "Jl. KH Abdul Halim, Majalengka Kulon, Kec. Majalengka, Kab. Majalengka",
+                        "type": "Restoran Keluarga",
+                        "accessibility": "Akses Mudah",
+                        "phone": "-",
+                        "operatingHours": "10:00 - 22:00",
+                        "services": ["Makan di Tempat", "Take Away"],
+                        "capacity": "100 Orang",
+                        "specialties": ["Masakan Khas Sunda", "Seafood"],
+                        "price": "Rp 20.000 - 60.000",
+                        "established": "2010",
+                        "awards": [],
+                        "lat": -6.837,
+                        "lng": 108.227
+                    },
+                    {
+                        "name": "Rumah Makan Djenal",
+                        "address": "Cicanir, Talaga, Kec. Talaga, Kab. Majalengka",
+                        "type": "Rumah Makan Sunda",
+                        "accessibility": "Akses Mudah",
+                        "phone": "-",
+                        "operatingHours": "09:00 - 21:00",
+                        "services": ["Makan di Tempat", "Take Away"],
+                        "capacity": "50 Orang",
+                        "specialties": ["Masakan Khas Sunda"],
+                        "price": "Rp 15.000 - 45.000",
+                        "established": "2000",
+                        "awards": [],
+                        "lat": -7.070,
+                        "lng": 108.323
+                    },
+                ],
+            },
+            wisata: {
+                title: "Tempat Wisata",
+                description: "Terasering Panyaweuyan, Curug Muara Jaya, Paralayang Gunung Panten, Situ Cipanten, dan destinasi wisata menarik lainnya",
+                icon: "mountain",
+                gradient: "from-green-500 to-blue-500",
+                bgGradient: "from-green-50 to-blue-50",
+                count: "9+",
+                overview: {
+                    totalDestinations: 9,
+                    accessibleSites: 20,
+                    annualVisitors: "500.000+",
+                    peakSeason: "Juni - Agustus",
+                },
+                services: [
+                    "Wisata Alam",
+                    "Wisata Budaya",
+                    "Wisata Religi",
+                    "Wisata Edukasi",
+                    "Wisata Kuliner",
+                    "Homestay",
+                    "Guide Lokal",
+                    "Paket Wisata",
+                    "Outbound",
+                    "Photography",
+                ],
+                facilities: [
+                    {
+                        name: "Terasering Panyaweuyan",
+                        address: "Desa Panyaweuyan, Kec. Argapura",
+                        type: "Wisata Alam",
+                        accessibility: "Jalur Trekking",
+                        phone: "0815-6789-0123",
+                        operatingHours: "06:00 - 18:00",
+                        services: ["Trekking", "Photography", "Camping", "Guide"],
+                        area: "50 Hektar",
+                        facilities: ["Viewing Point", "Toilet", "Warung", "Parkir", "Mushola"],
+                        activities: ["Sunrise Hunting", "Trekking", "Camping", "Photography"],
+                        ticketPrice: "Rp 10.000",
+                        bestTime: "April - September",
+                        difficulty: "Sedang",
+                        lat: -6.92,
+                        lng: 108.35,
+                    },
+                    {
+                        "name": "Curug Cipeuteuy",
+                        "address": "Desa Bantaragung, Kec. Sindangwangi",
+                        "type": "Wisata Alam - Air Terjun",
+                        "accessibility": "Jalan Setapak dan Tangga",
+                        "phone": "-",
+                        "operatingHours": "07:00 - 17:00",
+                        "services": ["Trekking", "Photography", "Piknik"],
+                        "area": "5 Hektar",
+                        "facilities": ["Toilet", "Warung", "Gazebo", "Parkir", "Mushola"],
+                        "activities": ["Trekking", "Main Air", "Camping", "Foto Alam"],
+                        "ticketPrice": "Rp 12.000",
+                        "bestTime": "April - November",
+                        "difficulty": "Mudah",
+                        "lat": -6.801,
+                        "lng": 108.267
+                    },
+                    {
+                        "name": "Situ Cipanten",
+                        "address": "Desa Gunung Kuning, Kec. Sindang",
+                        "type": "Wisata Air",
+                        "accessibility": "Akses Jalan Aspal",
+                        "phone": "0813-2456-1234",
+                        "operatingHours": "07:00 - 18:00",
+                        "services": ["Perahu", "Renang", "Spot Foto", "Flying Fox"],
+                        "area": "1.2 Hektar",
+                        "facilities": ["Toilet", "Parkir", "Warung", "Gazebo"],
+                        "activities": ["Berkano", "Foto di Jembatan", "Berenang"],
+                        "ticketPrice": "Rp 15.000",
+                        "bestTime": "Sepanjang Tahun",
+                        "difficulty": "Mudah",
+                        "lat": -6.820,
+                        "lng": 108.252
+                    },
+                        {
+                        "name": "Paralayang Majalengka",
+                        "address": "Gunung Panten, Desa Sidamukti, Kec. Majalengka",
+                        "type": "Wisata Petualangan",
+                        "accessibility": "Jalan Aspal & Jalur Tanah",
+                        "phone": "-",
+                        "operatingHours": "08:00 - 17:00",
+                        "services": ["Paralayang", "Camping", "Foto Udara"],
+                        "area": "Bukit",
+                        "facilities": ["Basecamp", "Warung", "Toilet", "Parkir"],
+                        "activities": ["Terbang Paralayang", "Camping", "Foto Pemandangan"],
+                        "ticketPrice": "Rp 25.000 (Tiket Masuk), Rp 350.000 (Terbang)",
+                        "bestTime": "Agustus - Oktober",
+                        "difficulty": "Sedang",
+                        "lat": -6.858,
+                        "lng": 108.232
+                    },
+                    {
+                        "name": "Bukit Mercury Sayang Kaak",
+                        "address": "Desa Tejamulya, Kec. Argapura",
+                        "type": "Wisata Instagramable",
+                        "accessibility": "Jalan Aspal & Tangga",
+                        "phone": "0813-6789-3210",
+                        "operatingHours": "06:00 - 18:00",
+                        "services": ["Spot Foto", "Camping", "Kafe"],
+                        "area": "4 Hektar",
+                        "facilities": ["Toilet", "Gazebo", "Kafe", "Parkir"],
+                        "activities": ["Camping", "Foto Awan", "Ngopi"],
+                        "ticketPrice": "Rp 15.000 - 20.000",
+                        "bestTime": "April - September",
+                        "difficulty": "Mudah",
+                        "lat": -6.918,
+                        "lng": 108.363
+                    },
+                    {
+                        "name": "Kebun Teh Cipasung",
+                        "address": "Desa Cipasung, Kec. Lemahsugih",
+                        "type": "Agrowisata",
+                        "accessibility": "Jalan Aspal",
+                        "phone": "-",
+                        "operatingHours": "07:00 - 17:00",
+                        "services": ["Trekking", "Foto Alam", "Eduwisata"],
+                        "area": "25 Hektar",
+                        "facilities": ["Toilet", "Warung", "Parkir"],
+                        "activities": ["Jalan-jalan di Kebun Teh", "Foto Instagramable"],
+                        "ticketPrice": "Rp 10.000",
+                        "bestTime": "April - Agustus",
+                        "difficulty": "Sedang",
+                        "lat": -7.061,
+                        "lng": 108.344
+                    },
+                    {
+                        "name": "Bukit Sanghyang Dora",
+                        "address": "Desa Sadawangi, Kec. Lemahsugih",
+                        "type": "Wisata Alam",
+                        "accessibility": "Jalur Trekking",
+                        "phone": "-",
+                        "operatingHours": "05:00 - 18:00",
+                        "services": ["View Gunung Ciremai", "Camping", "Sunrise Spot"],
+                        "area": "15 Hektar",
+                        "facilities": ["Camping Ground", "Parkir", "Toilet", "Warung"],
+                        "activities": ["Camping", "Trekking", "Fotografi Alam"],
+                        "ticketPrice": "Rp 8.000",
+                        "bestTime": "Musim Kemarau",
+                        "difficulty": "Menengah",
+                        "lat": -7.0368,
+                        "lng": 108.2884
+                    },
+                     {
+                        "name": "Gunung Ciremai Basecamp Apuy",
+                        "address": "Blok Apuy, Desa Argamukti, Kec. Argapura",
+                        "type": "Wisata Pendakian",
+                        "accessibility": "Jalan Aspal & Jalan Tanah",
+                        "phone": "0852-3478-6543",
+                        "operatingHours": "24 Jam (Basecamp)",
+                        "services": ["Pendakian", "Camping", "Guide", "Logistik"],
+                        "area": "Rute Gunung",
+                        "facilities": ["Basecamp", "Warung", "Toilet", "Parkir", "Pos Perizinan"],
+                        "activities": ["Pendakian", "Camping", "Sunrise View"],
+                        "ticketPrice": "Rp 30.000 - 50.000",
+                        "bestTime": "Mei - Oktober",
+                        "difficulty": "Sulit",
+                        "lat": -6.902,
+                        "lng": 108.368
+                    },
+
+
+                    {
+                        name: "Curug Muara Jaya",
+                        address: "Desa Muara Jaya, Kec. Banjaranyar",
+                        type: "Wisata Alam",
+                        accessibility: "Jalur Trekking",
+                        phone: "0816-7890-1234",
+                        operatingHours: "07:00 - 17:00",
+                        services: ["Trekking", "Swimming", "Photography", "Picnic"],
+                        area: "15 Hektar",
+                        facilities: ["Gazebo", "Toilet", "Warung", "Parkir"],
+                        activities: ["Berenang", "Trekking", "Picnic", "Photography"],
+                        ticketPrice: "Rp 5.000",
+                        bestTime: "Sepanjang Tahun",
+                        difficulty: "Mudah",
+                        lat: -6.95,
+                        lng: 108.4,
+                    },
+                ],
+            },
+        }
+
+        // Global variables
+        let currentMap = null
+
+        // Initialize the application
+        document.addEventListener("DOMContentLoaded", () => {
+            console.log("DOM Content Loaded - Initializing application...")
+            initializeLucideIcons()
+            initializeMobileMenu()
+            initializeServiceCards()
+            initializeSmoothScrolling()
+        })
+
+        // Initialize Lucide icons
+        function initializeLucideIcons() {
+            if (typeof lucide !== "undefined") {
+                lucide.createIcons()
+                console.log("Lucide icons initialized")
+            } else {
+                console.warn("Lucide not loaded")
+            }
+        }
+
+        // Mobile menu functionality
+        function initializeMobileMenu() {
+            const mobileMenuBtn = document.getElementById("mobileMenuBtn")
+            const mobileMenu = document.getElementById("mobileMenu")
+
+            if (mobileMenuBtn && mobileMenu) {
+                mobileMenuBtn.addEventListener("click", () => {
+                    const isHidden = mobileMenu.classList.contains("hidden")
+                    const icon = mobileMenuBtn.querySelector("[data-lucide]")
+
+                    if (isHidden) {
+                        mobileMenu.classList.remove("hidden")
+                        icon.setAttribute("data-lucide", "x")
+                    } else {
+                        mobileMenu.classList.add("hidden")
+                        icon.setAttribute("data-lucide", "menu")
+                    }
+
+                    lucide.createIcons()
+                })
+
+                // Close mobile menu when clicking on links
+                const mobileLinks = mobileMenu.querySelectorAll("a")
+                mobileLinks.forEach((link) => {
+                    link.addEventListener("click", () => {
+                        mobileMenu.classList.add("hidden")
+                        const icon = mobileMenuBtn.querySelector("[data-lucide]")
+                        icon.setAttribute("data-lucide", "menu")
+                        lucide.createIcons()
+                    })
+                })
+                console.log("Mobile menu initialized")
+            }
+        }
+
+        // Service cards functionality
+        function initializeServiceCards() {
+            const serviceCards = document.querySelectorAll(".service-card")
+            console.log(`Found ${serviceCards.length} service cards`)
+
+            serviceCards.forEach((card, index) => {
+                const serviceType = card.getAttribute("data-service")
+                console.log(`Card ${index}: service type = ${serviceType}`)
+                
+                card.addEventListener("click", function(e) {
+                    e.preventDefault()
+                    console.log(`Service card clicked: ${serviceType}`)
+                    
+                    if (serviceType && servicesData[serviceType]) {
+                        console.log(`Opening modal for: ${serviceType}`)
+                        openServiceDetailModal(serviceType)
+                    } else {
+                        console.error(`Service data not found for: ${serviceType}`)
+                    }
+                })
+            })
+        }
+
+        // Smooth scrolling for navigation links
+        function initializeSmoothScrolling() {
+            const navLinks = document.querySelectorAll('a[href^="#"]')
+
+            navLinks.forEach((link) => {
+                link.addEventListener("click", function (e) {
+                    e.preventDefault()
+
+                    const targetId = this.getAttribute("href")
+                    const targetSection = document.querySelector(targetId)
+
+                    if (targetSection) {
+                        const headerHeight = document.querySelector("header").offsetHeight
+                        const targetPosition = targetSection.offsetTop - headerHeight
+
+                        window.scrollTo({
+                            top: targetPosition,
+                            behavior: "smooth",
+                        })
+                    }
+                })
+            })
+        }
+
+        // Open service detail modal
+        function openServiceDetailModal(serviceType) {
+            console.log(`Opening modal for service: ${serviceType}`)
+            const service = servicesData[serviceType]
+            if (!service) {
+                console.error(`Service not found: ${serviceType}`)
+                return
+            }
+
+            const modal = document.getElementById("serviceDetailModal")
+            const modalContent = modal.querySelector(".bg-white")
+
+            if (!modal || !modalContent) {
+                console.error("Modal elements not found")
+                return
+            }
+
+            // Generate modal content
+            modalContent.innerHTML = generateServiceDetailHTML(service)
+
+            // Show modal
+            modal.classList.remove("hidden")
+            modal.classList.add("flex")
+
+            // Initialize map after modal is shown
+            setTimeout(() => {
+                initializeServiceMap(service)
+            }, 100)
+
+            // Initialize close functionality
+            initializeModalClose()
+
+            // Reinitialize icons
+            lucide.createIcons()
+        }
+
+        // Generate service detail HTML
+        function generateServiceDetailHTML(service) {
+            const mapLocations = service.facilities.map((facility) => ({
+                name: facility.name,
+                lat: facility.lat || -6.83,
+                lng: facility.lng || 108.23,
+                type: facility.type,
+                address: facility.address,
+                phone: facility.phone,
+            }))
+
+            return `
+                <!-- Header -->
+                <div class="service-detail-header text-white py-8" style="background: linear-gradient(135deg, #ef4444, #ec4899);">
+                    <div class="px-6">
+                        <div class="flex items-center justify-between mb-6">
+                            <div class="flex items-center space-x-4">
+                                <div class="flex h-16 w-16 items-center justify-center rounded-lg bg-white/20">
+                                    <i data-lucide="${service.icon}" class="h-8 w-8 text-white"></i>
+                                </div>
+                                <div>
+                                    <h1 class="text-3xl font-bold mb-2">${service.title}</h1>
+                                    <p class="text-xl text-white/90">${service.count} Lokasi Tersedia</p>
+                                </div>
+                            </div>
+                            <button id="closeServiceModal" class="text-white/80 hover:text-white p-2">
+                                <i data-lucide="x" class="h-6 w-6"></i>
+                            </button>
+                        </div>
+                        <p class="text-lg text-white/90 max-w-3xl">${service.description}</p>
+                    </div>
+                </div>
+
+                <!-- Content -->
+                <div class="p-6 modal-content">
+                    <div class="grid gap-8 lg:grid-cols-3">
+                        <!-- Main Content -->
+                        <div class="lg:col-span-2">
+                            <!-- Map Section -->
+                            <div class="mb-8">
+                                <div class="map-container">
+                                    <div class="map-header" style="background: linear-gradient(135deg, #ef4444, #ec4899);">
+                                        <div class="flex items-center">
+                                            <i data-lucide="map-pin" class="h-5 w-5 mr-2"></i>
+                                            <h3 class="font-semibold">Peta Lokasi</h3>
+                                        </div>
+                                        <div class="text-sm">
+                                            ${mapLocations.length} Lokasi Tersedia
+                                        </div>
+                                    </div>
+                                    <div id="serviceMap" style="height: 400px;" class="map-loading">
+                                        <i data-lucide="map-pin" class="h-8 w-8 animate-pulse mb-2"></i>
+                                        <p>Memuat peta...</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Overview Section -->
+                            <div class="bg-gray-50 rounded-lg p-6 mb-8">
+                                <h2 class="text-2xl font-bold mb-6 text-gray-900">Ringkasan ${service.title}</h2>
+                                <div class="service-overview-grid">
+                                    ${Object.entries(service.overview)
+                                      .map(
+                                        ([key, value]) => `
+                                        <div class="text-center p-4 bg-white rounded-lg shadow-sm">
+                                            <div class="text-2xl font-bold text-red-600">
+                                                ${value}
+                                            </div>
+                                            <div class="text-sm text-gray-600 capitalize">${formatKeyName(key)}</div>
+                                        </div>
+                                    `,
+                                      )
+                                      .join("")}
+                                </div>
+                            </div>
+
+                            <!-- Services Section -->
+                            <div class="bg-gray-50 rounded-lg p-6 mb-8">
+                                <h2 class="text-2xl font-bold mb-6 text-gray-900">Layanan Tersedia</h2>
+                                <div class="service-grid">
+                                    ${service.services
+                                      .map(
+                                        (serviceItem) => `
+                                        <div class="p-3 rounded-lg text-center text-sm font-medium text-white bg-gradient-to-r from-red-500 to-pink-500">
+                                            ${serviceItem}
+                                        </div>
+                                    `,
+                                      )
+                                      .join("")}
+                                </div>
+                            </div>
+
+                            <!-- Facilities Section -->
+                            <h2 class="text-2xl font-bold mb-6 text-gray-900">Daftar ${service.title}</h2>
+                            <div class="space-y-6">
+                                ${service.facilities
+                                  .map(
+                                    (facility) => `
+                                    <div class="facility-card bg-white rounded-lg shadow-md p-6">
+                                        <div class="flex items-start justify-between mb-4">
+                                            <div>
+                                                <h3 class="text-xl font-semibold text-gray-900 mb-2">${facility.name}</h3>
+                                                <p class="text-sm text-gray-600 mb-1">${facility.type}</p>
+                                            </div>
+                                            <span class="px-3 py-1 rounded-full text-xs font-medium text-white bg-gradient-to-r from-red-500 to-pink-500">
+                                                ${facility.accessibility}
+                                            </span>
+                                        </div>
+
+                                        <div class="grid md:grid-cols-2 gap-4 mb-4">
+                                            <div class="space-y-2 text-sm text-gray-600">
+                                                <div class="flex items-center">
+                                                    <i data-lucide="map-pin" class="h-4 w-4 mr-2 text-gray-400"></i>
+                                                    ${facility.address}
+                                                </div>
+                                                ${
+                                                  facility.phone !== "-"
+                                                    ? `
+                                                    <div class="flex items-center">
+                                                        <i data-lucide="phone" class="h-4 w-4 mr-2 text-gray-400"></i>
+                                                        ${facility.phone}
+                                                    </div>
+                                                `
+                                                    : ""
+                                                }
+                                                <div class="flex items-center">
+                                                    <i data-lucide="clock" class="h-4 w-4 mr-2 text-gray-400"></i>
+                                                    ${facility.operatingHours}
+                                                </div>
+                                            </div>
+
+                                            <div class="space-y-2 text-sm text-gray-600">
+                                                ${facility.capacity ? `<div><strong>Kapasitas:</strong> ${facility.capacity}</div>` : ""}
+                                                ${facility.area ? `<div><strong>Luas:</strong> ${facility.area}</div>` : ""}
+                                                ${facility.ticketPrice ? `<div><strong>Tiket:</strong> ${facility.ticketPrice}</div>` : ""}
+                                                ${facility.price ? `<div><strong>Harga:</strong> ${facility.price}</div>` : ""}
+                                            </div>
+                                        </div>
+
+                                        ${
+                                          facility.services
+                                            ? `
+                                            <div class="mb-4">
+                                                <h4 class="font-medium text-gray-900 mb-2">Layanan:</h4>
+                                                <div class="flex flex-wrap gap-2">
+                                                    ${facility.services
+                                                      .map(
+                                                        (service) => `
+                                                        <span class="tag tag-blue">${service}</span>
+                                                    `,
+                                                      )
+                                                      .join("")}
+                                                </div>
+                                            </div>
+                                        `
+                                            : ""
+                                        }
+
+                                        ${
+                                          facility.facilities
+                                            ? `
+                                            <div class="mb-4">
+                                                <h4 class="font-medium text-gray-900 mb-2">Fasilitas:</h4>
+                                                <div class="flex flex-wrap gap-2">
+                                                    ${facility.facilities
+                                                      .map(
+                                                        (fac) => `
+                                                        <span class="tag tag-green">${fac}</span>
+                                                    `,
+                                                      )
+                                                      .join("")}
+                                                </div>
+                                            </div>
+                                        `
+                                            : ""
+                                        }
+
+                                        ${
+                                          facility.specialties
+                                            ? `
+                                            <div class="mb-4">
+                                                <h4 class="font-medium text-gray-900 mb-2">Spesialisasi:</h4>
+                                                <div class="flex flex-wrap gap-2">
+                                                    ${facility.specialties
+                                                      .map(
+                                                        (spec) => `
+                                                        <span class="tag tag-blue">${spec}</span>
+                                                    `,
+                                                      )
+                                                      .join("")}
+                                                </div>
+                                            </div>
+                                        `
+                                            : ""
+                                        }
+
+                                        <div class="mt-4 pt-4 border-t border-gray-200">
+                                            <button class="w-full text-white py-2 px-4 rounded-md transition-all bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600" onclick="focusOnMap(${facility.lat || -6.83}, ${facility.lng || 108.23})">
+                                                <i data-lucide="map-pin" class="h-4 w-4 inline mr-2"></i>
+                                                Lihat di Peta
+                                            </button>
+                                        </div>
+                                    </div>
+                                `,
+                                  )
+                                  .join("")}
+                            </div>
+                        </div>
+
+                        <!-- Sidebar -->
+                        <div class="lg:col-span-1">
+                            <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+                                <h3 class="text-lg font-semibold mb-4 text-gray-900">Informasi Umum</h3>
+                                <div class="space-y-4">
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-gray-600">Total Lokasi</span>
+                                        <span class="font-semibold text-gray-900">${service.count}</span>
+                                    </div>
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-gray-600">Aksesibilitas</span>
+                                        <span class="font-semibold text-green-600">Tersedia</span>
+                                    </div>
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-gray-600">Status</span>
+                                        <span class="font-semibold text-green-600">Aktif</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="bg-white rounded-lg shadow-md p-6">
+                                <h3 class="text-lg font-semibold mb-4 text-gray-900">Bantuan</h3>
+                                <p class="text-sm text-gray-600 mb-4">Butuh bantuan atau informasi lebih lanjut? Hubungi kami.</p>
+                                <button class="w-full bg-gray-100 hover:bg-gray-200 text-gray-800 py-2 px-4 rounded-md transition-colors">
+                                    <i data-lucide="phone" class="h-4 w-4 inline mr-2"></i>
+                                    Hubungi Kami
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `
+        }
+
+        // Initialize service map
+        function initializeServiceMap(service) {
+            const mapContainer = document.getElementById("serviceMap")
+            if (!mapContainer || typeof L === "undefined") {
+                console.error("Map container or Leaflet not found")
+                return
+            }
+
+            // Clear loading state
+            mapContainer.innerHTML = ""
+            mapContainer.classList.remove("map-loading")
+
+            // Prepare map locations
+            const mapLocations = service.facilities.map((facility) => ({
+                name: facility.name,
+                lat: facility.lat && !isNaN(facility.lat) ? facility.lat : -6.83,
+                lng: facility.lng && !isNaN(facility.lng) ? facility.lng : 108.23,
+                type: facility.type,
+                address: facility.address,
+                phone: facility.phone,
+            }))
+
+            // Calculate center
+            const validLocations = mapLocations.filter((loc) => loc.lat !== -6.83 || loc.lng !== 108.23)
+            const centerLat =
+                validLocations.length > 0
+                    ? validLocations.reduce((sum, location) => sum + location.lat, 0) / validLocations.length
+                    : -6.83
+            const centerLng =
+                validLocations.length > 0
+                    ? validLocations.reduce((sum, location) => sum + location.lng, 0) / validLocations.length
+                    : 108.23
+
+            // Initialize map
+            try {
+                currentMap = L.map(mapContainer).setView([centerLat, centerLng], 12)
+
+                // Add tile layer
+                L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+                    maxZoom: 19,
+                }).addTo(currentMap)
+
+                // Add markers
+                const markers = []
+                mapLocations.forEach((location) => {
+                    const marker = L.marker([location.lat, location.lng]).addTo(currentMap)
+
+                    const popupContent = `
+                        <div style="padding: 8px; min-width: 200px;">
+                            <h3 style="font-weight: bold; font-size: 16px; margin-bottom: 4px;">${location.name}</h3>
+                            <p style="font-size: 14px; color: #666; margin-bottom: 4px;">${location.type}</p>
+                            <p style="font-size: 14px; margin-bottom: 4px;">${location.address}</p>
+                            ${location.phone && location.phone !== "-" ? `<p style="font-size: 14px; margin-bottom: 0;">📞 ${location.phone}</p>` : ""}
+                        </div>
+                    `
+                    marker.bindPopup(popupContent)
+                    markers.push(marker)
+                })
+
+                // Fit bounds if multiple locations
+                if (markers.length > 1) {
+                    const group = new L.featureGroup(markers)
+                    currentMap.fitBounds(group.getBounds().pad(0.1))
+                }
+            } catch (error) {
+                console.error("Error initializing map:", error)
+                mapContainer.innerHTML = `
+                    <div class="map-loading">
+                        <i data-lucide="alert-circle" class="h-8 w-8 text-red-500 mb-2"></i>
+                        <p class="text-red-600">Error loading map</p>
+                    </div>
+                `
+                lucide.createIcons()
+            }
+        }
+
+        // Focus on specific location in map
+        function focusOnMap(lat, lng) {
+            if (currentMap) {
+                currentMap.setView([lat, lng], 16)
+
+                // Scroll to map
+                const mapContainer = document.getElementById("serviceMap")
+                if (mapContainer) {
+                    mapContainer.scrollIntoView({ behavior: "smooth", block: "center" })
+                }
+            }
+        }
+
+        // Initialize modal close functionality
+        function initializeModalClose() {
+            const modal = document.getElementById("serviceDetailModal")
+            const closeBtn = document.getElementById("closeServiceModal")
+
+            // Close button
+            if (closeBtn) {
+                closeBtn.addEventListener("click", closeServiceModal)
+            }
+
+            // Click outside to close
+            modal.addEventListener("click", (e) => {
+                if (e.target === modal) {
+                    closeServiceModal()
+                }
+            })
+
+            // Escape key to close
+            document.addEventListener("keydown", (e) => {
+                if (e.key === "Escape" && !modal.classList.contains("hidden")) {
+                    closeServiceModal()
+                }
+            })
+        }
+
+        // Close service modal
+        function closeServiceModal() {
+            const modal = document.getElementById("serviceDetailModal")
+            modal.classList.add("hidden")
+            modal.classList.remove("flex")
+
+            // Clean up map
+            if (currentMap) {
+                currentMap.remove()
+                currentMap = null
+            }
+        }
+
+        // Utility function to format key names
+        function formatKeyName(key) {
+            const keyMap = {
+                totalFacilities: "Total Fasilitas",
+                hospitals: "Rumah Sakit",
+                puskesmas: "Puskesmas",
+                clinics: "Klinik",
+                accessibleFacilities: "Fasilitas Aksesibel",
+                emergencyServices: "Layanan Darurat",
+                coverage: "Cakupan",
+                universities: "Universitas",
+                highSchools: "SMA",
+                middleSchools: "SMP",
+                elementarySchools: "SD",
+                students: "Siswa",
+                teachers: "Guru",
+                terminals: "Terminal",
+                busStops: "Halte Bus",
+                trainStations: "Stasiun KA",
+                airports: "Bandara",
+                dailyPassengers: "Penumpang Harian",
+                routes: "Rute",
+                mosques: "Masjid",
+                parks: "Taman",
+                governmentOffices: "Kantor Pemerintah",
+                markets: "Pasar",
+                dailyVisitors: "Pengunjung Harian",
+                totalRestaurants: "Total Restoran",
+                traditionalFood: "Makanan Tradisional",
+                restaurants: "Restoran",
+                streetFood: "Makanan Jalanan",
+                accessibleVenues: "Tempat Aksesibel",
+                priceRange: "Kisaran Harga",
+                totalDestinations: "Total Destinasi",
+                naturalTourism: "Wisata Alam",
+                culturalTourism: "Wisata Budaya",
+                religiousTourism: "Wisata Religi",
+                accessibleSites: "Situs Aksesibel",
+                annualVisitors: "Pengunjung Tahunan",
+                peakSeason: "Musim Ramai",
+            }
+            
+            return keyMap[key] || key.replace(/([A-Z])/g, " $1").replace(/^./, (str) => str.toUpperCase()).trim()
+        }
+
+        console.log("SapaMajalengka WebGIS Application Loaded Successfully")
+    </script>
+    <!-- Service Detail Modal -->
+<div id="serviceDetailModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden items-center justify-center p-4">
+  <div class="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-hidden">
+    <!-- Modal content will be dynamically generated -->
+  </div>
+</div>
+
+<!-- Kecamatan Detail Modal -->
+<div id="kecamatanDetailModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden items-center justify-center p-4">
+  <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+    <!-- Modal content will be dynamically generated -->
+  </div>
+</div>
+</body>
+</html>
+
